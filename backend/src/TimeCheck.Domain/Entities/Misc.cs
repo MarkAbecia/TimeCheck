@@ -95,6 +95,52 @@ public sealed class Notification : BaseEntity, IChurchScoped
         Channels = channels,
         NextAttemptAt = now,
     };
+
+    public const int MaxAttempts = 6;
+
+    public void MarkRead(DateTimeOffset at) => ReadAt ??= at;
+
+    /// <summary>Taken by a delivery run: others skip it until <paramref name="until"/>, so a slow run isn't sent twice.</summary>
+    public void Claim(DateTimeOffset until) => NextAttemptAt = until;
+
+    /// <summary>Delivered (or nothing to send): <paramref name="channels"/> records where it actually went.</summary>
+    public void Delivered(IReadOnlyList<string> channels, DateTimeOffset at)
+    {
+        Channels = channels;
+        DeliveredAt = at;
+        LastError = null;
+    }
+
+    /// <summary>Retried with backoff (2, 4, 8 … minutes); after <see cref="MaxAttempts"/> it stays in-app only.</summary>
+    public void Failed(string error, DateTimeOffset now)
+    {
+        Attempts++;
+        LastError = error.Length > 500 ? error[..500] : error;
+        if (Attempts >= MaxAttempts) Delivered(["in_app"], now);
+        else NextAttemptAt = now.AddMinutes(Math.Pow(2, Attempts));
+    }
+}
+
+/// <summary>A browser someone allowed notifications on (§6.7). The keys are the browser's public ones, used to encrypt pushes.</summary>
+public sealed class PushSubscription : BaseEntity, IChurchScoped
+{
+    private PushSubscription() { }
+    public Guid ChurchId { get; private set; }
+    public Guid UserId { get; private set; }
+    public string Endpoint { get; private set; } = "";
+    public string P256dh { get; private set; } = "";
+    public string Auth { get; private set; } = "";
+
+    public static PushSubscription Create(Guid churchId, Guid userId, string endpoint, string p256dh, string auth) =>
+        new() { ChurchId = churchId, UserId = userId, Endpoint = endpoint, P256dh = p256dh, Auth = auth };
+
+    /// <summary>The same browser, signed in as someone else now, or with fresh keys.</summary>
+    public void Reassign(Guid userId, string p256dh, string auth)
+    {
+        UserId = userId;
+        P256dh = p256dh;
+        Auth = auth;
+    }
 }
 
 public sealed class ReportJob : BaseEntity, IChurchScoped

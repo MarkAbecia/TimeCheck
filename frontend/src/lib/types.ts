@@ -153,3 +153,15 @@ export type Invite = {
 };
 export type InviteEvent = { id: string; title: string; typeCode: string; startsAt: string };
 export type MyInvites = { events: InviteEvent[]; invites: Invite[] };
+
+export type AppNotification = { id: string; type: string; title: string; body: string; url: string; createdAt: string; read: boolean };
+export type NotificationList = { items: AppNotification[]; unread: number; nextCursor: string | null };
+export type NotificationCategory = "account" | "events" | "attendance" | "devotions" | "invites";
+export type CategoryPreference = { category: NotificationCategory; email: boolean; push: boolean };
+export type NotificationPreferences = {
+  categories: CategoryPreference[];
+  emailAvailable: boolean;
+  pushAvailable: boolean;
+  pushPublicKey: string | null;
+  pushDevices: number;
+};

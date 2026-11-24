@@ -85,6 +85,7 @@ public interface IAppDbContext
     DbSet<Attendance> Attendance { get; }
     DbSet<Devotion> Devotions { get; }
     DbSet<Invite> Invites { get; }
+    DbSet<PushSubscription> PushSubscriptions { get; }
     DbSet<RoleChange> RoleChanges { get; }
     DbSet<MemberStatusChange> MemberStatusChanges { get; }
     DbSet<Notification> Notifications { get; }
@@ -128,3 +129,25 @@ public interface IAiContentDetector
     Task<AiScore?> ScoreTextAsync(string text, CancellationToken ct);
     Task<AiScore?> ScoreImageAsync(byte[] image, string contentType, CancellationToken ct);
 }
+
+/// <summary>Sends one email (§6.7). Which provider is an owner decision (ADR 0007); "none" leaves notifications in-app.</summary>
+public interface IEmailSender
+{
+    bool Enabled { get; }
+    /// <summary>The web app's address, for links in emails.</summary>
+    string AppUrl { get; }
+    Task SendAsync(EmailMessage message, CancellationToken ct);
+}
+
+public sealed record EmailMessage(string To, string Subject, string Text, string Html);
+
+/// <summary>Web push with VAPID (§6.7). <see cref="PublicKey"/> is what browsers subscribe with.</summary>
+public interface IPushSender
+{
+    bool Enabled { get; }
+    string? PublicKey { get; }
+    Task<PushOutcome> SendAsync(string endpoint, string p256dh, string auth, string payloadJson, CancellationToken ct);
+}
+
+/// <summary>Gone: the browser unsubscribed or the subscription expired, so it's removed.</summary>
+public enum PushOutcome { Sent, Gone, Failed }

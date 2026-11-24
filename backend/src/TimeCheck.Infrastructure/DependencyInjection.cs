@@ -8,6 +8,7 @@ using TimeCheck.Application.Abstractions;
 using TimeCheck.Domain.Enums;
 using TimeCheck.Infrastructure.Caching;
 using TimeCheck.Infrastructure.Files;
+using TimeCheck.Infrastructure.Notifications;
 using TimeCheck.Infrastructure.Persistence;
 using TimeCheck.Infrastructure.Security;
 
@@ -68,6 +69,29 @@ public static class DependencyInjection
             "fake" when config.GetValue<bool>("Ai:FakeAllowed") => new FakeAiContentDetector(),
             var p => throw new InvalidOperationException($"Ai:Provider '{p}' isn't available here. Use \"none\" until a provider is chosen (ADR 0006)."),
         });
+
+        // Notifications (§6.7). Email provider is an owner decision (ADR 0007): "none" until chosen; "mailpit" is local only.
+        var appUrl = config["Notifications:AppUrl"] ?? "http://localhost:3400";
+        switch (config["Notifications:Email:Provider"] ?? "none")
+        {
+            case "none":
+                services.AddSingleton<IEmailSender>(new DisabledEmailSender(appUrl));
+                break;
+            case "mailpit":
+                services.AddHttpClient<IEmailSender, MailpitEmailSender>((http, _) =>
+                {
+                    http.BaseAddress = new Uri($"{(config["Notifications:Email:MailpitUrl"] ?? "http://127.0.0.1:55424").TrimEnd('/')}/");
+                    return new MailpitEmailSender(http, appUrl, config["Notifications:Email:From"] ?? "no-reply@timecheck.test");
+                });
+                break;
+            case var p:
+                throw new InvalidOperationException($"Notifications:Email:Provider '{p}' isn't available. Use \"none\" until a provider is chosen (ADR 0007).");
+        }
+        // Push is on when both VAPID keys are configured.
+        if (config["Notifications:Push:PublicKey"] is { Length: > 0 } pub && config["Notifications:Push:PrivateKey"] is { Length: > 0 } priv)
+            services.AddHttpClient<IPushSender, WebPushSender>((http, _) =>
+                new WebPushSender(http, pub, priv, config["Notifications:Push:Subject"] ?? "mailto:no-reply@timecheck.test"));
+        else services.AddSingleton<IPushSender, DisabledPushSender>();
         return services;
     }
 

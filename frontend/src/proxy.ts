@@ -72,6 +72,8 @@ function withSecurityHeaders(request: NextRequest) {
     `img-src 'self' blob: data:${storageOrigin()}`,
     "font-src 'self'",
     `connect-src 'self'${isDev ? " ws:" : ""}`,
+    // The push service worker (public/sw.js); strict-dynamic would otherwise ignore 'self' for it.
+    "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -100,7 +102,7 @@ function withSecurityHeaders(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest).*)",
+      source: "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|sw.js).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

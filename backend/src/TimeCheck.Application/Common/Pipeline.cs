@@ -129,6 +129,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<Features.Devotions.DevotionReminders>();
         services.AddScoped<Features.Invites.InvitePurge>();
         services.AddScoped<Features.Invites.InviteReminders>();
+        services.AddScoped<Features.Notifications.NotificationDelivery>();
+        services.AddScoped<Features.Notifications.AttendanceReminders>();
         return services;
     }
 }

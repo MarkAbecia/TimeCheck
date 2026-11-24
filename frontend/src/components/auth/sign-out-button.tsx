@@ -2,15 +2,29 @@
 
 import { LogOut } from "lucide-react";
 import { clearQueue } from "@/lib/offline-queue";
+import { disablePush } from "@/lib/push";
 
 /**
  * A plain form POST: works before hydration and with JS off. /api/auth/logout revokes the session and redirects
- * to /login. Attendance still queued offline is dropped, so the next person on a shared phone never sends it.
+ * to /login. Attendance still queued offline is dropped and pushes to this browser stop, so the next person on a shared
+ * phone neither sends the last person's marks nor sees their notifications.
  * "shell" is the icon button that sits beside the theme toggle on the black shell.
  */
 export function SignOutButton({ label, className, variant = "link" }: { label: string; className?: string; variant?: "link" | "shell" }) {
   return (
-    <form action="/api/auth/logout" method="post" className={className} onSubmit={clearQueue}>
+    <form
+      action="/api/auth/logout"
+      method="post"
+      className={className}
+      onSubmit={(e) => {
+        clearQueue();
+        const form = e.currentTarget;
+        e.preventDefault();
+        void disablePush()
+          .catch(() => undefined)
+          .finally(() => form.submit());
+      }}
+    >
       {variant === "shell" ? (
         <button
           type="submit"

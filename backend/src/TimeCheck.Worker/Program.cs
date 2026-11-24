@@ -4,6 +4,7 @@ using Serilog;
 using Serilog.Formatting.Compact;
 using TimeCheck.Application.Features.Devotions;
 using TimeCheck.Application.Features.Invites;
+using TimeCheck.Application.Features.Notifications;
 using TimeCheck.Application.Features.Events;
 using TimeCheck.Infrastructure;
 using TimeCheck.Infrastructure.Persistence;
@@ -22,6 +23,8 @@ builder.Services.AddScoped<DevotionChecker>();
 builder.Services.AddScoped<DevotionReminders>();
 builder.Services.AddScoped<InvitePurge>();
 builder.Services.AddScoped<InviteReminders>();
+builder.Services.AddScoped<NotificationDelivery>();
+builder.Services.AddScoped<AttendanceReminders>();
 
 // Hangfire needs a session-mode (or direct) connection, not the transaction-mode pooler.
 var hangfireConnection = builder.Configuration.GetConnectionString("Hangfire")
@@ -34,7 +37,7 @@ builder.Services.AddHangfireServer(o => o.WorkerCount = Math.Max(2, Environment.
 
 var host = builder.Build();
 
-// Recurring jobs. Outbox delivery joins in Phase 9.
+// Recurring jobs.
 // Event generation: shortly after midnight Manila time, and once at start-up so a fresh deploy has its next 14 days.
 var jobs = host.Services.GetRequiredService<IRecurringJobManager>();
 jobs.AddOrUpdate<EventGenerator>("generate-events", g => g.GenerateAsync(EventGenerator.DaysAhead, CancellationToken.None), "10 0 * * *",
@@ -47,6 +50,9 @@ jobs.AddOrUpdate<DevotionReminders>("devotion-reminders", r => r.RunAsync(Cancel
 jobs.AddOrUpdate<InviteReminders>("invite-reminders", r => r.RunAsync(CancellationToken.None), Cron.Hourly());
 jobs.AddOrUpdate<InvitePurge>("purge-invites", p => p.RunAsync(CancellationToken.None), "30 2 * * *",
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila") });
+// Notifications (§6.7): the outbox every minute; "not marked yet" to leaders hourly.
+jobs.AddOrUpdate<NotificationDelivery>("deliver-notifications", d => d.RunAsync(CancellationToken.None), Cron.Minutely());
+jobs.AddOrUpdate<AttendanceReminders>("attendance-reminders", r => r.RunAsync(CancellationToken.None), Cron.Hourly());
 
 await host.RunAsync();
 

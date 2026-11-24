@@ -31,7 +31,8 @@
     "audit": "Audit log",
     "more": "More",
     "moreTitle": "More",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "unread": "{count, plural, one {# unread} other {# unread}}"
   },
   "greeting": {
     "morning": "Good morning, {name}",
@@ -259,7 +260,8 @@
     "changePassword": "Change password",
     "passwordChanged": "Password changed. Other devices are signed out.",
     "offline": "You're offline. Try again when you're connected.",
-    "unexpected": "Something went wrong. Try again."
+    "unexpected": "Something went wrong. Try again.",
+    "notificationsTitle": "Notifications"
   },
   "attendance": {
     "saved": "{count, plural, one {Saved # mark} other {Saved # marks}}",
@@ -491,6 +493,52 @@
     "confirmRemove": "Tap again to remove",
     "removed": "Guest removed.",
     "saved": "Saved.",
+    "offline": "You're offline. Try again when you have a signal.",
+    "unexpected": "Something went wrong. Try again."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "lead": "Everything TimeCheck tells you lands here. <link>Choose what also comes by email or push.</link>",
+    "emptyTitle": "Nothing yet",
+    "emptyBody": "When something changes for you or your group, you'll see it here.",
+    "new": "New",
+    "markAll": "Mark all as read",
+    "pages": "More notifications",
+    "older": "Older",
+    "newest": "Newest",
+    "alwaysInApp": "You'll always see these here in TimeCheck. Choose what also comes by email or as a push on your phone.",
+    "emailNotSetUp": "Email isn't set up for this church yet, so these come in TimeCheck and as pushes.",
+    "pushNotSetUp": "Push notifications aren't set up for this church yet.",
+    "deviceChecking": "Checking this device…",
+    "device": {
+      "unsupported": "This browser can't show notifications. On iPhone, add TimeCheck to your Home Screen first (Share, then Add to Home Screen).",
+      "blocked": "Notifications are blocked for TimeCheck in this browser's settings. Allow them there, then come back.",
+      "off": "Push notifications are off on this device.",
+      "on": "Push notifications are on for this device."
+    },
+    "turnOn": "Turn on for this device",
+    "turnOff": "Turn off for this device",
+    "deviceOn": "You'll get pushes on this device.",
+    "category": {
+      "account": "Your account",
+      "events": "Events",
+      "attendance": "Attendance to mark",
+      "devotions": "Devotion reminders",
+      "invites": "Guest reminders"
+    },
+    "categoryHint": {
+      "account": "When your role changes.",
+      "events": "New, changed and cancelled gatherings for you or your group.",
+      "attendance": "Leaders: members still unmarked two hours after a gathering.",
+      "devotions": "If you haven't sent your Day or Night devotion yet.",
+      "invites": "Asking whether your guests came."
+    },
+    "channel": {
+      "email": "Email",
+      "push": "Push"
+    },
+    "save": "Save choices",
+    "saved": "Notification choices saved.",
     "offline": "You're offline. Try again when you have a signal.",
     "unexpected": "Something went wrong. Try again."
   }

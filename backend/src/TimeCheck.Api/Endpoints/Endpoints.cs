@@ -5,6 +5,7 @@ using TimeCheck.Application.Common;
 using TimeCheck.Application.Features.Admin;
 using TimeCheck.Application.Features.Devotions;
 using TimeCheck.Application.Features.Invites;
+using TimeCheck.Application.Features.Notifications;
 using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
@@ -140,6 +141,29 @@ public static class Endpoints
         invites.MapDelete("/{id:guid}", async (Guid id, Dispatcher d, CancellationToken ct) =>
         {
             await d.Send(new RemoveInvite(id), ct);
+            return Results.NoContent();
+        });
+
+        // Notifications (§6.7): the in-app list, channel choices, and this browser's push subscription.
+        var notifications = v1.MapGroup("/me").WithTags("Notifications");
+        notifications.MapGet("/notifications", (string? cursor, int? limit, Dispatcher d, CancellationToken ct) =>
+            d.Send(new ListMyNotifications(cursor, limit ?? 30), ct));
+        notifications.MapPost("/notifications/read", async (MarkNotificationsRead body, Dispatcher d, CancellationToken ct) =>
+            Results.Ok(new { marked = await d.Send(body, ct) }));
+        notifications.MapGet("/notification-preferences", (Dispatcher d, CancellationToken ct) => d.Send(new GetNotificationPreferences(), ct));
+        notifications.MapPut("/notification-preferences", async (UpdateNotificationPreferences body, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(body, ct);
+            return await d.Send(new GetNotificationPreferences(), ct);
+        });
+        notifications.MapPost("/push-subscriptions", async (SavePushSubscription body, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(body, ct);
+            return Results.NoContent();
+        });
+        notifications.MapPost("/push-subscriptions/remove", async (RemovePushSubscription body, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(body, ct);
             return Results.NoContent();
         });
 

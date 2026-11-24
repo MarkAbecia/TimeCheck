@@ -38,6 +38,7 @@ public sealed class AppDbContext(
     public DbSet<Devotion> Devotions => Set<Devotion>();
     public void DiscardChanges() => ChangeTracker.Clear();
     public DbSet<Invite> Invites => Set<Invite>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<RoleChange> RoleChanges => Set<RoleChange>();
     public DbSet<MemberStatusChange> MemberStatusChanges => Set<MemberStatusChange>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -80,6 +81,7 @@ public sealed class AppDbContext(
             e.Property<string?>(MobileBidx).HasColumnName("mobile_bidx");
             e.Property<string>(NameBirthdateBidx).HasColumnName("name_birthdate_bidx");
             e.Property(x => x.Email).HasColumnType("citext");
+            e.Property(x => x.Settings).HasColumnType("jsonb");
             e.Ignore(x => x.DisplayName);
             e.Ignore(x => x.IsActive);
             e.HasQueryFilter(x => x.DeletedAt == null && (TenantChurchId == null || x.ChurchId == TenantChurchId));
@@ -120,6 +122,7 @@ public sealed class AppDbContext(
             e.Property(x => x.Channels).HasColumnType("text[]");
             Tenant(e);
         });
+        b.Entity<PushSubscription>(e => { e.ToTable("push_subscriptions"); Tenant(e); });
         b.Entity<ReportJob>(e =>
         {
             e.ToTable("report_jobs");

@@ -35,6 +35,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public FakeAuthAdmin AuthAdmin { get; }
     public FakeStorage Storage { get; } = new();
+    public FakeEmail Email { get; } = new();
+    public FakePush Push { get; } = new();
 
     public ApiFactory() => AuthAdmin = new FakeAuthAdmin(() => _pg.GetConnectionString());
     public static readonly Guid LeaderAppId = Guid.Parse("10000000-0000-0000-0000-000000000003");
@@ -79,6 +81,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IAuthAdmin>(AuthAdmin));
         builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IFileStorage>(Storage));
+        builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IEmailSender>(Email));
+        builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IPushSender>(Push));
         builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
         {
             var config = new OpenIdConnectConfiguration { Issuer = Issuer };
@@ -235,5 +239,35 @@ public sealed class FakeStorage : TimeCheck.Application.Abstractions.IFileStorag
     {
         Objects.TryRemove($"{bucket}/{path}", out _);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records emails instead of sending them. Addresses containing "fail" throw, to exercise retries.</summary>
+public sealed class FakeEmail : TimeCheck.Application.Abstractions.IEmailSender
+{
+    public System.Collections.Concurrent.ConcurrentBag<TimeCheck.Application.Abstractions.EmailMessage> Sent { get; } = [];
+    public bool Enabled => true;
+    public string AppUrl => "https://app.test";
+
+    public Task SendAsync(TimeCheck.Application.Abstractions.EmailMessage message, CancellationToken ct)
+    {
+        if (message.To.Contains("fail", StringComparison.Ordinal)) throw new HttpRequestException("provider down");
+        Sent.Add(message);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records pushes. Endpoints containing "gone" answer as an expired subscription.</summary>
+public sealed class FakePush : TimeCheck.Application.Abstractions.IPushSender
+{
+    public System.Collections.Concurrent.ConcurrentBag<(string Endpoint, string Payload)> Sent { get; } = [];
+    public bool Enabled => true;
+    public string? PublicKey => "BTestPublicKey";
+
+    public Task<TimeCheck.Application.Abstractions.PushOutcome> SendAsync(string endpoint, string p256dh, string auth, string payloadJson, CancellationToken ct)
+    {
+        if (endpoint.Contains("gone", StringComparison.Ordinal)) return Task.FromResult(TimeCheck.Application.Abstractions.PushOutcome.Gone);
+        Sent.Add((endpoint, payloadJson));
+        return Task.FromResult(TimeCheck.Application.Abstractions.PushOutcome.Sent);
     }
 }

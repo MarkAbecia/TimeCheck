@@ -7,6 +7,11 @@ public sealed class AppUser : BaseEntity, IChurchScoped, IAuditedEntity
 {
     public const int AdultAge = 18;
 
+    /// <summary>Personal settings as JSON (app_users.settings), e.g. notification channels per category (§6.7).</summary>
+    public string Settings { get; private set; } = "{}";
+
+    public void ReplaceSettings(string json) => Settings = json;
+
     private AppUser() { }
 
     public Guid ChurchId { get; private set; }

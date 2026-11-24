@@ -49,7 +49,17 @@ export function greetingKey(hour: number) {
   return hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
 }
 
-export async function AppShell({ session, hour, children }: { session: Session; hour: number; children: React.ReactNode }) {
+export async function AppShell({
+  session,
+  hour,
+  unread = 0,
+  children,
+}: {
+  session: Session;
+  hour: number;
+  unread?: number;
+  children: React.ReactNode;
+}) {
   const t = await getTranslations();
   const greeting = t(`greeting.${greetingKey(hour)}`, { name: session.firstName });
   const poweredBy = t("brand.poweredBy");
@@ -74,7 +84,7 @@ export async function AppShell({ session, hour, children }: { session: Session; 
           </div>
           <ThemeToggle className="-mr-2 hidden lg:inline-flex" />
         </div>
-        <SideNav role={session.role} />
+        <SideNav role={session.role} unread={unread} />
         <div className="flex flex-col items-center gap-2 border-t border-shell-border p-3 lg:flex-row lg:items-center lg:gap-3 lg:p-4">
           <Avatar initials={session.initials} />
           <div className="hidden min-w-0 flex-1 lg:block">
@@ -113,7 +123,7 @@ export async function AppShell({ session, hour, children }: { session: Session; 
         </main>
       </div>
 
-      <BottomTabs role={session.role} />
+      <BottomTabs role={session.role} unread={unread} />
     </div>
   );
 }

@@ -269,10 +269,41 @@ Checked:
 - **Playwright:** new flow: a member logs a guest for a meeting that already started and marks them as came; the leader sees the guest with their contact and registers them from the invite; the member then sees "Now a member". `/invites` was added to the axe run. Teardown removes guests logged for "E2E " events. A new `sql()` helper sets up the past meeting.
 - **Live as the seeded leader (375 px):** adding a guest works. Found and fixed: the event picker cut off the date on a phone (the date now comes first). The test guest was removed afterwards.
 
+## Phase 9 — Notifications (done, 2026-11-24)
+
+Defaults taken from §6.7 and the open questions:
+- In-app is always on. Email and push are chosen per category (account, events, attendance, devotions, invites). Devotion and invite reminders default to push only, so they don't fill an inbox.
+- No production email provider yet (owner decision, ADR 0007). Dev sends to Mailpit; production starts with email off and says so on the profile page.
+- Push uses standard Web Push with VAPID keys from configuration. Signing out unsubscribes the browser.
+
+Built:
+- **Database:** `push_subscriptions` (one row per browser endpoint, RLS like the other tenant tables). Preferences live in `app_users.settings.notifications`.
+- **Worker:**
+  - `deliver-notifications`, every minute: sends due outbox rows by email and push in the reader's church time. Email failures retry with backoff (6 attempts); push goes once; expired subscriptions are deleted; deactivated users get in-app only.
+  - `attendance-reminders`, hourly: tells a group's leader once per event when members are still unmarked 2 hours after it ends (`attendance.unmarked`).
+- **API (`/me`):** `GET /notifications` (cursor paging, unread count), `POST /notifications/read`, `GET`/`PUT /notification-preferences`, `POST /push-subscriptions` and `/push-subscriptions/remove`.
+- **Frontend:**
+  - `/notifications`: the list with "New" in words, mark all read, older/newest paging. Opening one marks it read before navigating.
+  - Unread badge on the nav item (and on "More" when it sits there).
+  - Profile → Notifications: push on/off for this browser, and Email/Push per category. The attendance category shows for leaders and up.
+  - `public/sw.js` shows pushes and opens their link; `manifest.ts` added. CSP allows `worker-src 'self'`.
+
+Checked:
+- **Automated:** backend 101/101 (5 new `NotificationsTests`: channels per preference, retry without repeat push, gone and shared subscriptions, paging and read scope, one attendance reminder; 1 `WebPushSenderTests` against a stub push service: VAPID header, aes128gcm body, 410 → gone). Frontend typecheck, lint, 49 unit tests and the production build pass.
+- **Playwright:** 131/131 pass. New flow: the member sees the badge, opens a notification (marked read), and saves a category choice; Attendance stays hidden for members. `/notifications` added to the axe run.
+- **Live:** an event change for the seeded leader was delivered as in-app and email; Mailpit showed the right subject, time and links. Real push couldn't be tried here (the browser pane blocks the permission prompt); the stub test covers the sender.
+
 ## Known gaps / next
+- Phase 9:
+  - No production email provider (ADR 0007); email is off until the owner chooses one.
+  - No manifest icons yet (Phase 11).
+  - Push hasn't been tried on a real phone.
+  - The delivery claim isn't a row lock; fine with one Worker.
+  - The unread badge refreshes on navigation, not live.
+  - Attendance reminders go to current group leaders only.
+  - "Report ready" notifications wait for Phase 10.
 - Phase 7:
   - No real detection provider (Q6, ADR 0006), and no OCR, so a photo is scored as an image, not as the text on it.
-  - Reminders are outbox rows only; delivery is Phase 9.
   - Devotions don't write DEVOTION_DAY/NIGHT attendance rows; reports can count them from `devotions`.
   - No settings screen for windows, reminder times or thresholds yet.
   - Mirrored EXIF orientations aren't handled.
@@ -280,7 +311,6 @@ Checked:
   - Hangfire runs could overlap if a batch takes over a minute; the concurrency token keeps the data right, but work may repeat.
 - Phase 6:
   - The calendar is an agenda list; there is no month grid yet.
-  - Notification delivery is Phase 9; only the outbox rows exist.
   - The generator doesn't extend Cell Meeting series past their weeks.
   - The Week of Fire weekday comes from `event_types`, not church settings.
   - The offline queue isn't backed by a service worker (it sends when the app is next open).
