@@ -6,7 +6,7 @@ COPY Directory.Build.props TimeCheck.sln ./
 COPY src/ src/
 RUN dotnet publish src/TimeCheck.Api/TimeCheck.Api.csproj -c Release -o /app --no-self-contained
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080 DOTNET_RUNNING_IN_CONTAINER=true
 COPY --from=build /app .
