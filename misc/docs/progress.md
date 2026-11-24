@@ -25,7 +25,68 @@
 - Tests: **51 pass** — domain 16, application 7, architecture 5, integration 23 (Testcontainers Postgres running the real migrations + seed as the least-privilege role, real Redis; covers 401s, IDOR/cross-church 404s, MFA, unknown fields, encryption at rest, audit, rate limit).
 - Smoke-tested the API against local Supabase: `/health/ready` Healthy, `/api/v1/me` 401 without token.
 
+## Phase 3 — Design system (done)
+
+**Direction**
+- Impeccable init wrote `frontend/PRODUCT.md`. The owner's answers:
+  - The church name leads, with "powered by TimeCheck" under it.
+  - Teens 13+ sign in themselves.
+  - Light, natural faith voice.
+- Visual world: **The Event Pass** (direction contract in `frontend/.impeccable/surfaces/src-app.md`):
+  - A black "lanyard" shell.
+  - Each gathering is a pass with a red band for group events or a black/cream band for church-wide events.
+  - The stub carries the state and the action.
+  - Gold appears only as foil on the role band.
+  - Barlow Condensed for event names and numbers, Public Sans for everything else (self-hosted by next/font).
+
+**Tokens and themes**
+- §11.1 light and dark tokens live in `src/app/globals.css` and feed both Tailwind and shadcn.
+- `npm run contrast` checks 54 pairs against WCAG AA in both modes. It runs in CI.
+- Themes come from next-themes: Light, Dark or System (default System), with no flash on first paint.
+- The `theme-color` meta follows the explicit choice.
+- There's a toggle in the header, and a segmented control ready for Profile → Appearance.
+
+**Shell (§11.3)**
+- Phone: bottom tabs, at most 4 plus More (as a sheet).
+- Tablet: a side rail.
+- Desktop: a full sidebar.
+- Uses safe-area insets and `dvh`. Every touch target is at least 44px.
+- Nav items are role-based (`lib/nav.ts`, tested per role).
+- Sections that haven't been built yet land on a placeholder page, not a 404.
+
+**Today and auth screens**
+- Today renders Event Passes in all stub states, plus loading, error and empty states.
+- Today shows sample data, clearly labelled, until Phase 6.
+- Auth pages: `/login`, `/forgot-password`, `/reset-password`.
+  - Built with react-hook-form + Zod; messages come from next-intl keys.
+  - Every state is handled: field errors, form alert, pending, success, offline, 429, and an expired link.
+  - The forgot-password response never reveals whether an email has an account.
+  - The post-login redirect is guarded against open redirects.
+  - The forms post to `/api/auth/*`, which arrives in Phase 4.
+- The Supabase password minimum is raised to 12 characters with letters and digits; the Zod schema matches.
+
+**Security and rendering**
+- `src/proxy.ts` sends a per-request nonce CSP plus HSTS, nosniff, Referrer-Policy, Permissions-Policy, COOP and frame-ancestors 'none'.
+- This means pages render dynamically, with no Cache Components/PPR. See **ADR 0005**.
+
+**i18n**
+- next-intl with `messages/en.json` (Asia/Manila time zone), ready for a Filipino file later.
+
+**Delivery**
+- `output: 'standalone'`.
+- `frontend/Dockerfile`: multi-stage, runs as the non-root `node` user, HEALTHCHECK on `/api/health`.
+- Smoke-tested: the container returns 200 on health and sends the CSP header.
+
+**Tests and checks**
+- Vitest: **27 pass** — Zod schemas, nav per role, safe redirect, Event Pass states, login form states, and the CSP nonce plus the sonner style hash.
+- lint, typecheck, build and contrast are all green.
+
+**Reviews**
+- Impeccable finish review returned "fix". All 7 material fixes were applied: the stub fill ramp, a time-ordered Today, the cream church band in dark mode, the stamp only on marking, the upcoming stub showing day and time, the sample-data label, and light and login captures.
+- Hallmark audit: report in `misc/docs/audits/2026-11-24-hallmark-phase3.md`.
+
 ## Known gaps / next
 - **Local Supabase signs tokens with the legacy HS256 secret.** Before Phase 4, generate asymmetric signing keys (`supabase gen signing-key`, `signing_keys_path` in config.toml) so the API's JWKS validation works locally too.
 - Docker base images use tags; pin digests before production.
-- Phase 3 (design system) needs `/impeccable init` run interactively with the brand brief in §11.
+- Playwright visual + axe e2e at the five viewports (§11.3/§13) are not written yet; add with the first real flows in Phase 4.
+- Demo session/role comes from `TC_DEMO_ROLE` until the BFF session lands (Phase 4).

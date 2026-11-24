@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * TimeCheck palette (REQUIREMENTS §11.1). One source of truth: these variables feed Tailwind (@theme) and shadcn.
+ * Contrast pairs are checked by scripts/contrast.mjs in CI; change a value there and here together.
+ */
+:root {
+  color-scheme: light;
+  --background: #faf8f3;
+  --foreground: #141414;
+  --card: #ffffff;
+  --card-foreground: #141414;
+  --popover: #ffffff;
+  --popover-foreground: #141414;
+  --surface-2: #f1eee6;
+  --muted: #f1eee6;
+  --muted-foreground: #5f5a52;
+  --secondary: #f1eee6;
+  --secondary-foreground: #141414;
+  --border: #e2ded3;
+  --input: #e2ded3;
+  --primary: #b3121b;
+  --primary-foreground: #ffffff;
+  --primary-text: #b3121b;
+  --accent: #c9a227;
+  --accent-foreground: #0b0b0c;
+  --accent-text: #7a5c0e;
+  --ring: #b3121b;
+  --destructive: #9f1239;
+  --success: #15803d;
+  --warning: #b45309;
+
+  /* The lanyard: app bar, bottom bar and sidebar stay black in both modes. */
+  --shell: #0b0b0c;
+  --shell-foreground: #f5f2ea;
+  --shell-muted: #a39e93;
+  --shell-border: #2a2a2e;
+  --shell-active: #e5484d;
+  --shell-ring: #d4af37;
+  --shell-accent: #d4af37;
+
+  /* Event pass bands */
+  --band-group: #b3121b;
+  --band-church: #0b0b0c;
+  /* Stub fill ramp: share checked in, rising from the bottom of a marked stub. */
+  --stub-fill: #dcebdf;
+
+  --chart-1: #b3121b;
+  --chart-2: #c9a227;
+  --chart-3: #141414;
+  --chart-4: #8a857c;
+  --chart-5: #c8c3b8;
+
+  --radius: 0.625rem;
+  --sidebar: var(--shell);
+  --sidebar-foreground: var(--shell-foreground);
+  --sidebar-primary: var(--shell-active);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1f1f22;
+  --sidebar-accent-foreground: var(--shell-foreground);
+  --sidebar-border: var(--shell-border);
+  --sidebar-ring: var(--shell-ring);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0b0b0c;
+  --foreground: #f5f2ea;
+  --card: #161618;
+  --card-foreground: #f5f2ea;
+  --popover: #161618;
+  --popover-foreground: #f5f2ea;
+  --surface-2: #1f1f22;
+  --muted: #1f1f22;
+  --muted-foreground: #a39e93;
+  --secondary: #1f1f22;
+  --secondary-foreground: #f5f2ea;
+  --border: #2a2a2e;
+  --input: #2a2a2e;
+  --primary: #c8102e;
+  --primary-foreground: #ffffff;
+  --primary-text: #e5484d;
+  --accent: #d4af37;
+  --accent-foreground: #0b0b0c;
+  --accent-text: #d4af37;
+  --ring: #d4af37;
+  --destructive: #fb7185;
+  --success: #4ade80;
+  --warning: #fbbf24;
+
+  --shell: #050506;
+  --shell-border: #2a2a2e;
+
+  --band-group: #c8102e;
+  --band-church: #f5f2ea; /* the lanyard reversed, not greyed out */
+  --stub-fill: #1d3324;
+
+  --chart-1: #e5484d;
+  --chart-2: #d4af37;
+  --chart-3: #f5f2ea;
+  --chart-4: #8a857c;
+  --chart-5: #4a4740;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface-2: var(--surface-2);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-text: var(--primary-text);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-text: var(--accent-text);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-shell: var(--shell);
+  --color-shell-foreground: var(--shell-foreground);
+  --color-shell-muted: var(--shell-muted);
+  --color-shell-border: var(--shell-border);
+  --color-shell-active: var(--shell-active);
+  --color-shell-ring: var(--shell-ring);
+  --color-shell-accent: var(--shell-accent);
+  --color-band-group: var(--band-group);
+  --color-band-church: var(--band-church);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-barlow-condensed), var(--font-public-sans), sans-serif;
+  --font-heading: var(--font-display);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* The one authored motion: the check is stamped onto the stub when a pass is marked. */
+  --animate-stamp: stamp 420ms var(--ease-out-expo) both;
+  @keyframes stamp {
+    from {
+      opacity: 0;
+      transform: scale(1.6) rotate(-12deg);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    overflow-x: clip; /* never a horizontal page scroll (§11.3); clip keeps position: sticky working */
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: 1rem; /* ≥16px on mobile, also stops iOS zoom on input focus */
+    line-height: 1.5;
+  }
+  /* Focus: 2px ring + 2px offset, ring colour per mode (§11.1). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .shell :focus-visible {
+    outline-color: var(--shell-ring);
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+    color: var(--foreground);
+  }
+  input,
+  textarea {
+    caret-color: var(--primary-text);
+  }
+  a {
+    text-underline-offset: 0.2em;
+  }
+  * {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

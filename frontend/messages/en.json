@@ -1,0 +1,118 @@
+{
+  "brand": {
+    "poweredBy": "powered by TimeCheck"
+  },
+  "theme": {
+    "label": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "roles": {
+    "super_admin": "Super Admin",
+    "admin": "Admin",
+    "leader": "Leader",
+    "member": "Member"
+  },
+  "nav": {
+    "label": "Main",
+    "skip": "Skip to content",
+    "today": "Today",
+    "members": "Members",
+    "devotions": "Devotions",
+    "events": "Events",
+    "invites": "Invites",
+    "history": "My attendance",
+    "groups": "Groups",
+    "reports": "Reports",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "audit": "Audit log",
+    "more": "More",
+    "moreTitle": "More",
+    "signOut": "Sign out"
+  },
+  "greeting": {
+    "morning": "Good morning, {name}",
+    "afternoon": "Good afternoon, {name}",
+    "evening": "Good evening, {name}"
+  },
+  "today": {
+    "title": "Today",
+    "heading": "Today · {date}",
+    "comingUp": "Coming up",
+    "sampleNote": "Sample events. Your real schedule appears here once scheduling is set up.",
+    "emptyTitle": "No gatherings today",
+    "emptyBody": "Rest well. Your next event will show here when it's scheduled.",
+    "errorTitle": "Today's events didn't load",
+    "errorBody": "Check your connection, then try again.",
+    "retry": "Try again",
+    "loading": "Loading today's events"
+  },
+  "pass": {
+    "members": "{count, plural, one {# member} other {# members}}",
+    "checkIn": "Check in",
+    "checkInFor": "Check in for {event}",
+    "ofTotal": "{present} of {total}",
+    "checkedIn": "checked in",
+    "marked": "Marked",
+    "opens": "opens",
+    "attended": "You were here",
+    "notMarked": "Not marked yet",
+    "groupEvent": "Group event",
+    "churchEvent": "Church-wide event"
+  },
+  "placeholder": {
+    "title": "On its way",
+    "body": "This part of TimeCheck is being built. Today's events are ready now.",
+    "back": "Back to Today"
+  },
+  "auth": {
+    "signInTitle": "Sign in",
+    "signInLead": "Welcome back. Sign in to see today's gatherings.",
+    "email": "Email",
+    "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "forgot": "Forgot password?",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "noAccount": "Accounts are made by your cell leader or church admin.",
+    "invalidCredentials": "That email and password don't match. Try again, or reset your password.",
+    "rateLimited": "Too many tries. Wait a minute, then try again.",
+    "unexpected": "Something went wrong on our side. Try again in a moment.",
+    "offline": "You're offline. Connect to the internet to sign in.",
+    "forgotTitle": "Reset your password",
+    "forgotLead": "Enter the email on your account and we'll send a reset link.",
+    "sendLink": "Send reset link",
+    "sending": "Sending…",
+    "linkSentTitle": "Check your email",
+    "linkSentBody": "If {email} has a TimeCheck account, a reset link is on its way. It expires in 1 hour.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "resetLead": "Use at least 12 characters with letters and numbers.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "savePassword": "Save password",
+    "saving": "Saving…",
+    "resetDoneTitle": "Password updated",
+    "resetDoneBody": "You can now sign in with your new password.",
+    "resetExpired": "This reset link has expired or was already used. Ask for a new one.",
+    "requestNewLink": "Request a new link"
+  },
+  "errors": {
+    "emailRequired": "Enter your email.",
+    "emailInvalid": "Enter an email like name@example.com.",
+    "passwordRequired": "Enter your password.",
+    "passwordTooShort": "Use at least 12 characters.",
+    "passwordTooLong": "Use 72 characters or fewer.",
+    "passwordNeedsMix": "Include at least one letter and one number.",
+    "passwordsDontMatch": "The passwords don't match."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "That page doesn't exist or has moved.",
+    "home": "Go to Today"
+  }
+}

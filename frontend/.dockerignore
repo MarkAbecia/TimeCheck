@@ -1,0 +1,10 @@
+node_modules
+.next
+.impeccable
+coverage
+test-results
+playwright-report
+.env*
+*.test.ts
+*.test.tsx
+Dockerfile
