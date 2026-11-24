@@ -42,7 +42,7 @@ jobs:
       - if: steps.has.outputs.ok == 'true'
         run: docker build -t timecheck-${{ matrix.name }}:ci -f ${{ matrix.file }} ${{ matrix.context }}
       - if: steps.has.outputs.ok == 'true'
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: timecheck-${{ matrix.name }}:ci
           severity: HIGH,CRITICAL
