@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
@@ -10,6 +11,20 @@ export const LEADER_STATE = "e2e/.auth/leader.json";
 /** People the specs create use this domain, so teardown can find and remove exactly them. */
 export const E2E_DOMAIN = "e2e.timecheck.test";
 export const uniqueEmail = (name: string) => `${name}.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}@${E2E_DOMAIN}`;
+
+/**
+ * Runs SQL in the local Supabase database and returns psql's unaligned output. For test setup only.
+ * shortcut: goes through `docker exec`; use a direct connection when e2e runs in CI.
+ */
+export const sql = (query: string) =>
+  execFileSync(
+    "docker",
+    ["exec", "-i", process.env.E2E_DB_CONTAINER ?? "supabase_db_timecheck", "psql", "-U", "postgres", "-tAq", "-v", "ON_ERROR_STOP=1"],
+    {
+      input: query,
+      encoding: "utf8",
+    },
+  ).trim();
 
 const MAILPIT = process.env.MAILPIT_URL ?? "http://127.0.0.1:55424";
 

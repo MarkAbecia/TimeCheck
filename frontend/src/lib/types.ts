@@ -131,3 +131,25 @@ export type DevotionDetail = {
 export type DevotionBrief = { id: string; aiStatus: AiStatus; score: number | null; band: AiBand | null; reviewed: boolean; hasImage: boolean };
 export type MemberDevotions = { userId: string; displayName: string; groupName: string | null; day: DevotionBrief | null; night: DevotionBrief | null };
 export type GroupDevotions = { date: string; members: MemberDevotions[]; submitted: number; expected: number };
+
+export type InviteStatus = "EXPECTED" | "CAME" | "DID_NOT_COME";
+export type Invite = {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  eventTypeCode: string;
+  eventStartsAt: string;
+  eventCancelled: boolean;
+  guestName: string;
+  guestContact: string | null;
+  status: InviteStatus;
+  convertedUserId: string | null;
+  inviterId: string;
+  inviterName: string;
+  inviterGroupId: string | null;
+  inviterGroupName: string | null;
+  mine: boolean;
+  canConvert: boolean;
+};
+export type InviteEvent = { id: string; title: string; typeCode: string; startsAt: string };
+export type MyInvites = { events: InviteEvent[]; invites: Invite[] };

@@ -3,6 +3,7 @@ using Hangfire.PostgreSql;
 using Serilog;
 using Serilog.Formatting.Compact;
 using TimeCheck.Application.Features.Devotions;
+using TimeCheck.Application.Features.Invites;
 using TimeCheck.Application.Features.Events;
 using TimeCheck.Infrastructure;
 using TimeCheck.Infrastructure.Persistence;
@@ -19,6 +20,8 @@ builder.Services.AddSingleton<ITenantScope, AllChurchesTenantScope>();
 builder.Services.AddScoped<EventGenerator>();
 builder.Services.AddScoped<DevotionChecker>();
 builder.Services.AddScoped<DevotionReminders>();
+builder.Services.AddScoped<InvitePurge>();
+builder.Services.AddScoped<InviteReminders>();
 
 // Hangfire needs a session-mode (or direct) connection, not the transaction-mode pooler.
 var hangfireConnection = builder.Configuration.GetConnectionString("Hangfire")
@@ -31,7 +34,7 @@ builder.Services.AddHangfireServer(o => o.WorkerCount = Math.Max(2, Environment.
 
 var host = builder.Build();
 
-// Recurring jobs. Outbox delivery and retention join in later phases.
+// Recurring jobs. Outbox delivery joins in Phase 9.
 // Event generation: shortly after midnight Manila time, and once at start-up so a fresh deploy has its next 14 days.
 var jobs = host.Services.GetRequiredService<IRecurringJobManager>();
 jobs.AddOrUpdate<EventGenerator>("generate-events", g => g.GenerateAsync(EventGenerator.DaysAhead, CancellationToken.None), "10 0 * * *",
@@ -40,6 +43,10 @@ jobs.Trigger("generate-events");
 // AI detection every minute, so a score shows within 60 s of upload (§6.3); reminders check every 15 minutes.
 jobs.AddOrUpdate<DevotionChecker>("check-devotions", c => c.RunAsync(CancellationToken.None), Cron.Minutely());
 jobs.AddOrUpdate<DevotionReminders>("devotion-reminders", r => r.RunAsync(CancellationToken.None), "*/15 * * * *");
+// Invites (§6.5): "did your guest come?" hourly, and unconverted guests erased after their purge date, nightly.
+jobs.AddOrUpdate<InviteReminders>("invite-reminders", r => r.RunAsync(CancellationToken.None), Cron.Hourly());
+jobs.AddOrUpdate<InvitePurge>("purge-invites", p => p.RunAsync(CancellationToken.None), "30 2 * * *",
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila") });
 
 await host.RunAsync();
 

@@ -4,6 +4,7 @@ using TimeCheck.Application.Abstractions;
 using TimeCheck.Application.Common;
 using TimeCheck.Application.Features.Admin;
 using TimeCheck.Application.Features.Devotions;
+using TimeCheck.Application.Features.Invites;
 using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
@@ -123,6 +124,24 @@ public static class Endpoints
             await d.Send(body with { Id = id }, ct);
             return await d.Send(new GetDevotion(id), ct);
         }).RequireAuthorization(Policies.Leader);
+
+        // Invites (§6.5). Any signed-in member logs their own guests; leaders see and mark their groups' (others get 404).
+        v1.MapGet("/me/invites", (Dispatcher d, CancellationToken ct) => d.Send(new GetMyInvites(), ct)).WithTags("Invites");
+        var invites = v1.MapGroup("/invites").WithTags("Invites");
+        invites.MapGet("", (Guid? eventId, DateOnly? from, DateOnly? to, Dispatcher d, CancellationToken ct) =>
+            d.Send(new ListInvites(eventId, from, to), ct)).RequireAuthorization(Policies.Leader);
+        invites.MapPost("", async (LogInvite body, Dispatcher d, CancellationToken ct) =>
+        {
+            var invite = await d.Send(body, ct);
+            return Results.Created($"/api/v1/invites/{invite.Id}", invite);
+        });
+        invites.MapPatch("/{id:guid}", (Guid id, EditInvite body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct));
+        invites.MapPut("/{id:guid}/status", (Guid id, MarkInvite body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct));
+        invites.MapDelete("/{id:guid}", async (Guid id, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(new RemoveInvite(id), ct);
+            return Results.NoContent();
+        });
 
         var admin = v1.MapGroup("/admin").WithTags("Admin");
         admin.MapGet("/audit-logs", (Guid? actorId, string? action, string? entityType, DateTimeOffset? from, DateTimeOffset? to,

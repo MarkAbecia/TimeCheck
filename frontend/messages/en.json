@@ -455,5 +455,43 @@
     "markReviewed": "Mark reviewed",
     "updateReview": "Update review",
     "reviewSaved": "Marked reviewed."
+  },
+  "invites": {
+    "title": "Invites",
+    "lead": "Keep track of the friends you invite to cell. Your leader sees them too, so they can welcome them.",
+    "logTitle": "Invite a guest",
+    "event": "Event",
+    "guestName": "Guest's name",
+    "guestContact": "Mobile or email (optional)",
+    "privacy": "Only you, your leader and admins see guest details. They're removed 90 days after the event unless the guest joins.",
+    "log": "Add guest",
+    "logging": "Adding…",
+    "logged": "{name} added. Praying they come!",
+    "nameRequired": "Enter your guest's name.",
+    "noEvents": "No Cell Meeting or Cell Celebration in the next 30 days yet.",
+    "mineTitle": "Your guests",
+    "emptyTitle": "No guests yet",
+    "emptyBody": "When you invite someone to cell, add them here.",
+    "groupTitle": "Your group's guests",
+    "groupEmpty": "No guests from your group in the last 30 days.",
+    "invitedBy": "Invited by {name}",
+    "didTheyCome": "Did {name} come?",
+    "mark": {
+      "CAME": "Came",
+      "DID_NOT_COME": "Didn't come"
+    },
+    "status": {
+      "EXPECTED": "Expected",
+      "CONVERTED": "Now a member"
+    },
+    "cancelled": "This event was cancelled.",
+    "eventCancelled": "That event was cancelled. Pick another one.",
+    "register": "Register as member",
+    "remove": "Remove",
+    "confirmRemove": "Tap again to remove",
+    "removed": "Guest removed.",
+    "saved": "Saved.",
+    "offline": "You're offline. Try again when you have a signal.",
+    "unexpected": "Something went wrong. Try again."
   }
 }

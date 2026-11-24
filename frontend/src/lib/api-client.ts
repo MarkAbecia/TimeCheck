@@ -11,7 +11,7 @@ export type Problem = {
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; problem: Problem };
 
 /** Client-side call through the BFF proxy (/api/bff → /api/v1). Never throws. */
-export async function send<T = unknown>(method: "POST" | "PATCH" | "PUT", path: string, body?: unknown): Promise<ApiResult<T>> {
+export async function send<T = unknown>(method: "POST" | "PATCH" | "PUT" | "DELETE", path: string, body?: unknown): Promise<ApiResult<T>> {
   if (typeof navigator !== "undefined" && !navigator.onLine) return { ok: false, problem: { status: 0, code: "offline" } };
   try {
     const res = await fetch(`/api/bff${path}`, {

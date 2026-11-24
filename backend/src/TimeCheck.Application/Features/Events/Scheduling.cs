@@ -338,6 +338,7 @@ public sealed class CancelEventRequestHandler(IAppDbContext db, ICurrentUser cur
 
         // Notify before cancelling: the roster is everyone who expected to be there (§6.6).
         await Scheduling.Notify(db, e, await db.EventAudiences.AnyAsync(a => a.EventId == e.Id, ct), "event.cancelled", me.AppUserId, clock.GetUtcNow(), ct);
+        await Invites.InviteAccess.NotifyCancelled(db, e, me.AppUserId, clock.GetUtcNow(), ct);
         e.Cancel(clock.GetUtcNow(), me.AppUserId);
         audit.Describe("event", e.Id, new { cancelled = false }, new { cancelled = true });
         return await EventDetail.Build(db, me, e, null, clock, ct);

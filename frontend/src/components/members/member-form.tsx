@@ -12,7 +12,8 @@ import { send, type Problem } from "@/lib/api-client";
 import type { Member } from "@/lib/types";
 import { editSchema, isMinor, registerSchema, toMemberBody, type RegisterInput } from "@/lib/validation/member";
 
-type Props = { mode: "register"; groupId: string } | { mode: "edit"; member: Member };
+/** `guest`: registering someone who came as a guest (§6.5); the invite is linked to the new member. */
+type Props = { mode: "register"; groupId: string; guest?: { inviteId: string; name: string } } | { mode: "edit"; member: Member };
 type Values = RegisterInput; // edit uses the same fields; email is ignored there
 
 const FIELDS = [
@@ -29,10 +30,12 @@ const FIELDS = [
 ] as const;
 
 function defaults(props: Props): Values {
-  if (props.mode === "register")
+  if (props.mode === "register") {
+    // A guest's name is one free-text field; the last word is a fair first guess at the surname.
+    const words = props.guest?.name.trim().split(/\s+/) ?? [];
     return {
-      firstName: "",
-      lastName: "",
+      firstName: words.length > 1 ? words.slice(0, -1).join(" ") : (words[0] ?? ""),
+      lastName: words.length > 1 ? words[words.length - 1] : "",
       nickname: "",
       gender: "" as Values["gender"],
       birthdate: "",
@@ -45,6 +48,7 @@ function defaults(props: Props): Values {
       guardianContact: "",
       guardianConsent: false,
     };
+  }
   const m = props.member;
   return {
     firstName: m.firstName,
@@ -88,7 +92,11 @@ export function MemberForm(props: Props) {
       const body = toMemberBody(values);
       const r =
         props.mode === "register"
-          ? await send<Member>("POST", `/groups/${props.groupId}/members`, { ...body, confirmDuplicates })
+          ? await send<Member>("POST", `/groups/${props.groupId}/members`, {
+              ...body,
+              confirmDuplicates,
+              inviteId: props.guest?.inviteId ?? null,
+            })
           : await send<Member>("PATCH", `/members/${props.member.id}`, body);
       if (r.ok) {
         toast.success(t(editing ? "saved" : "registered", { name: r.data.displayName }));

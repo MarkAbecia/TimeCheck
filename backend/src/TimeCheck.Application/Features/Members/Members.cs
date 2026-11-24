@@ -100,7 +100,7 @@ internal static class MemberRules
 public sealed record RegisterMember(
     Guid GroupId, string FirstName, string LastName, string? Nickname, Gender Gender, DateOnly Birthdate, string? GradeLevel,
     string Mobile, string Email, string? Address, DateOnly? JoinedOn, MemberStatus? Status, GuardianInput? Guardian,
-    bool ConfirmDuplicates = false) : IRequest<MemberDto>, IAuditedRequest
+    bool ConfirmDuplicates = false, Guid? InviteId = null) : IRequest<MemberDto>, IAuditedRequest
 {
     public string AuditAction => "member.register";
 }
@@ -132,6 +132,9 @@ public sealed class RegisterMemberHandler(
         var email = r.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(u => u.Email == email, ct)) throw new ConflictException("A member with this email already exists.");
 
+        // Registering a guest who came (§6.5): the invite must be one this leader reaches, and is linked to the new member.
+        var invite = r.InviteId is { } inviteId ? await Features.Invites.InviteAccess.Load(db, me, inviteId, ct) : null;
+
         // Possible duplicates (§6.4): warn, and let the leader confirm. Matches by blind index; nobody's details are returned.
         if (!r.ConfirmDuplicates)
         {
@@ -161,7 +164,9 @@ public sealed class RegisterMemberHandler(
 
         db.Users.Add(user);
         db.GroupMemberships.Add(GroupMembership.Start(me.ChurchId, r.GroupId, user.Id, user.JoinedOn));
-        audit.Describe("app_user", user.Id, null, new { groupId = r.GroupId, status = user.Status, user.IsMinor, duplicatesConfirmed = r.ConfirmDuplicates });
+        invite?.Convert(user.Id);
+        audit.Describe("app_user", user.Id, null,
+            new { groupId = r.GroupId, status = user.Status, user.IsMinor, duplicatesConfirmed = r.ConfirmDuplicates, fromInvite = r.InviteId });
         return await Members.ToDto(db, user, r.GroupId, ct);
     }
 }

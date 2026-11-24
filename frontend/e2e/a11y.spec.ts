@@ -23,6 +23,7 @@ test.describe("signed in as a leader", () => {
     "/history",
     "/devotions",
     "/devotions/group",
+    "/invites",
   ]) {
     test(path, async ({ page }) => {
       await page.goto(path);

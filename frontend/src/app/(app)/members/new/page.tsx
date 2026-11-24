@@ -10,7 +10,11 @@ export const metadata: Metadata = { title: "Register a member" };
 
 export default async function NewMemberPage({ searchParams }: PageProps<"/members/new">) {
   await requireRole("leader");
-  const [t, groups, { group: wanted }] = await Promise.all([getTranslations("members"), apiGet<GroupSummary[]>("/groups"), searchParams]);
+  const [t, groups, sp] = await Promise.all([getTranslations("members"), apiGet<GroupSummary[]>("/groups"), searchParams]);
+  const wanted = sp.group;
+  // From the invites page: register a guest who came. The API checks the invite is one this leader may convert.
+  const guest =
+    typeof sp.invite === "string" && typeof sp.name === "string" ? { inviteId: sp.invite, name: sp.name.slice(0, 200) } : undefined;
   const group = groups.find((g) => g.id === wanted) ?? (groups.length === 1 ? groups[0] : undefined);
   if (!group) notFound();
   return (
@@ -19,7 +23,7 @@ export default async function NewMemberPage({ searchParams }: PageProps<"/member
         <h1 className="font-display text-3xl font-bold uppercase">{t("registerTitle")}</h1>
         <p className="text-muted-foreground">{t("registerLead", { group: group.name })}</p>
       </div>
-      <MemberForm mode="register" groupId={group.id} />
+      <MemberForm mode="register" groupId={group.id} guest={guest} />
     </div>
   );
 }

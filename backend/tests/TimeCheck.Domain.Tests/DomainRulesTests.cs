@@ -195,3 +195,44 @@ public class DevotionRulesTests
         empty.Should().Throw<DomainException>();
     }
 }
+
+public class InviteRulesTests
+{
+    private static Invite New() => Invite.Log(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "  Ana Reyes ", " ", new DateOnly(2027, 2, 22));
+
+    [Fact]
+    public void Logging_trims_details_and_rejects_a_blank_name()
+    {
+        var i = New();
+        i.GuestName.Should().Be("Ana Reyes");
+        i.GuestContact.Should().BeNull();
+        i.Status.Should().Be(InviteStatus.EXPECTED);
+        FluentActions.Invoking(() => i.Edit(" ", null)).Should().Throw<DomainException>().Which.Code.Should().Be("invite.name");
+        FluentActions.Invoking(() => i.Edit("Ana", new string('9', 201))).Should().Throw<DomainException>().Which.Code.Should().Be("invite.contact");
+    }
+
+    [Fact]
+    public void Only_a_guest_who_came_converts_and_a_converted_invite_is_then_fixed()
+    {
+        var i = New();
+        FluentActions.Invoking(() => i.Convert(Guid.NewGuid())).Should().Throw<DomainException>().Which.Code.Should().Be("invite.not_came");
+        i.Mark(InviteStatus.CAME);
+        var member = Guid.NewGuid();
+        i.Convert(member);
+        i.ConvertedUserId.Should().Be(member);
+        i.Mark(InviteStatus.CAME); // unchanged is fine
+        FluentActions.Invoking(() => i.Mark(InviteStatus.DID_NOT_COME)).Should().Throw<DomainException>().Which.Code.Should().Be("invite.converted");
+        FluentActions.Invoking(() => i.Erase(DateTimeOffset.UtcNow)).Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void Erasing_removes_the_guest_details()
+    {
+        var i = New();
+        i.Edit("Ana Reyes", "0917 000 0000");
+        i.Erase(DateTimeOffset.UtcNow);
+        i.GuestName.Should().Be(Invite.ErasedName);
+        i.GuestContact.Should().BeNull();
+        i.DeletedAt.Should().NotBeNull();
+    }
+}

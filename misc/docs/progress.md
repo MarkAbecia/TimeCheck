@@ -243,6 +243,32 @@ Checked:
 - **Playwright:** 109 passing. New flow: a member sends a devotion with a photo, the leader finds it, opens it, sees the photo, and reviews it with a note; the member then removes the photo. `/devotions` and `/devotions/group` were added to the axe run.
 - **Live as the seeded leader (375 px):** text plus photo went through the BFF into real Supabase Storage (a 24 KB JPEG), the Worker scored it within a minute, and the signed photo loads under the CSP. Found and fixed: "closes 12 AM" (now the last open minute), the recent list overflowing a phone, wrapped slot labels in the group view, and the form still saying "Photo ready to send" after an edit. The test devotion, its photo and the reminder rows were removed afterwards.
 
+## Phase 8 — Invites (done, 2026-11-24)
+
+Defaults taken from §6.5 and the open questions:
+- Guests are logged for a Cell Meeting or Cell Celebration the member can see, from 7 days before today to 30 days ahead.
+- The member or their leader marks "Came" or "Didn't come" once the event has started. Either can switch it back.
+- Guests have no account, so when an event is cancelled their inviters are told instead (`invite.event_cancelled`), to pass it on.
+- Unconverted guests are erased 90 days after the event (church setting `invites.purgeAfterDays`).
+
+Built:
+- **API:**
+  - `GET /me/invites`: your guests from the last 60 days onwards, and the events you can invite to.
+  - `POST /invites`, `PATCH /invites/{id}`, `PUT /invites/{id}/status`, `DELETE /invites/{id}`.
+  - `GET /invites` (leaders): their groups' guests by event or date range (92 days at most). Admins see everyone.
+  - Only the inviter, their leader and admins reach an invite; anyone else gets 404. Guest contact is encrypted at rest. Audits record status changes and whether a contact was given, never the name or contact.
+- **Converting:** registering a member takes an optional `inviteId`. The leader's "Register as member" opens the usual form with the guest's name filled in, and saving links the invite to the new member. A converted invite can't be changed or removed after that.
+- **Removing:** a mistaken invite is erased (name replaced, contact cleared, hidden), not deleted.
+- **Worker:**
+  - `invite-reminders`, hourly: "Did your guest come?" to members with guests still expected at an event that ended 2 hours to 3 days ago. At most once per person per day.
+  - `purge-invites`, nightly at 02:30 Manila: erases unconverted guests past their purge date.
+- **Screen `/invites`:** add a guest (event, name, optional contact) with the privacy note; your guests with Came / Didn't come and a two-tap remove. Leaders also see their group's guests, with who invited them and "Register as member".
+
+Checked:
+- **Automated:** backend 95/95 (3 new domain tests, 6 new `InvitesTests`: encryption and audit privacy, access across groups and churches, event rules, marking and conversion, removal and the cancel notice, purge and reminders). Frontend typecheck, lint, 49 unit tests and the production build pass.
+- **Playwright:** new flow: a member logs a guest for a meeting that already started and marks them as came; the leader sees the guest with their contact and registers them from the invite; the member then sees "Now a member". `/invites` was added to the axe run. Teardown removes guests logged for "E2E " events. A new `sql()` helper sets up the past meeting.
+- **Live as the seeded leader (375 px):** adding a guest works. Found and fixed: the event picker cut off the date on a phone (the date now comes first). The test guest was removed afterwards.
+
 ## Known gaps / next
 - Phase 7:
   - No real detection provider (Q6, ADR 0006), and no OCR, so a photo is scored as an image, not as the text on it.
