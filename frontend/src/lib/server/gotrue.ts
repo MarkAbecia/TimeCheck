@@ -83,11 +83,12 @@ export const gotrue = {
     }),
 
   /** Exchanges a recovery link's token hash for a session. */
-  verifyRecovery: async (tokenHash: string) =>
+  /** Exchanges the one-time hash from a reset or invite email for a session. */
+  verifyEmailLink: async (type: "recovery" | "invite", tokenHash: string) =>
     toSession(
       await call<TokenResponse>("/verify", {
         method: "POST",
-        body: JSON.stringify({ type: "recovery", token_hash: tokenHash }),
+        body: JSON.stringify({ type, token_hash: tokenHash }),
       }),
     ),
 

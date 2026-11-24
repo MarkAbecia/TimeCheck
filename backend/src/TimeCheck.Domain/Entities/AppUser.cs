@@ -127,6 +127,24 @@ public sealed class AppUser : BaseEntity, IChurchScoped, IAuditedEntity
         return change;
     }
 
+    /// <summary>Fields only the member's leader or an admin may change, to keep reports trustworthy (§6.9).</summary>
+    public void UpdateDetails(string firstName, string lastName, string? nickname, Gender gender, DateOnly birthdate,
+        string? gradeLevel, string? mobile, string? address, DateOnly joinedOn, Guardian? guardian, DateOnly today, Guid actorId)
+    {
+        if (birthdate > today) throw new DomainException("birthdate.future", "Birthdate cannot be in the future.");
+        FirstName = firstName.Trim();
+        LastName = lastName.Trim();
+        Nickname = Blank(nickname);
+        Gender = gender;
+        Birthdate = birthdate;
+        GradeLevel = Blank(gradeLevel);
+        Mobile = Blank(mobile);
+        Address = Blank(address);
+        JoinedOn = joinedOn;
+        SetGuardian(guardian, today);
+        UpdatedBy = actorId;
+    }
+
     /// <summary>Fields a member may edit themselves (§6.9).</summary>
     public void UpdateOwnProfile(string? nickname, string? mobile, string? address)
     {

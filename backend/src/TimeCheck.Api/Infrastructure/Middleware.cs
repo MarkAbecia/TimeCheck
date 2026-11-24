@@ -110,6 +110,7 @@ public sealed class ProblemExceptionHandler(IProblemDetailsService problems, ILo
             NotFoundException n => new ProblemDetails { Status = 404, Title = n.Message },
             ForbiddenException f => new ProblemDetails { Status = 403, Title = f.Message },
             ConflictException c => new ProblemDetails { Status = 409, Title = c.Message },
+            DuplicateWarningException w => new ProblemDetails { Status = 409, Title = w.Message, Extensions = { ["code"] = "duplicate.warning", ["matches"] = w.Matches } },
             DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Someone else changed this at the same time. Reload and try again." },
             BadHttpRequestException b => new ProblemDetails { Status = b.StatusCode, Title = "The request could not be read." },
             _ => new ProblemDetails { Status = 500, Title = "Something went wrong on our side." },

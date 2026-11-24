@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import type { Role } from "./nav";
 import { nextOnboardingStep, type Me, type OnboardingStep } from "./onboarding";
@@ -33,6 +33,16 @@ export async function requireSession(): Promise<Session> {
   const step = nextOnboardingStep(current.me, current.aal);
   if (step) redirect(step);
   return toSession(current.me);
+}
+
+const RANK: Record<Role, number> = { member: 0, leader: 1, admin: 2, super_admin: 3 };
+export const atLeast = (role: Role, min: Role) => RANK[role] >= RANK[min];
+
+/** Like requireSession, for pages a role below `min` must not know exist (the API enforces it too). */
+export async function requireRole(min: Role): Promise<Session> {
+  const session = await requireSession();
+  if (!atLeast(session.role, min)) notFound();
+  return session;
 }
 
 /** For onboarding pages: signed in and owing exactly this step; otherwise sent where they belong. */

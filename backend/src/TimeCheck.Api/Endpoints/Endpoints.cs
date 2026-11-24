@@ -4,6 +4,7 @@ using TimeCheck.Application.Common;
 using TimeCheck.Application.Features.Admin;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
+using TimeCheck.Application.Features.Members;
 
 namespace TimeCheck.Api.Endpoints;
 
@@ -31,7 +32,36 @@ public static class Endpoints
         });
 
         var groups = v1.MapGroup("/groups").WithTags("Groups");
+        groups.MapGet("", (Dispatcher d, CancellationToken ct) => d.Send(new ListGroups(), ct)).RequireAuthorization(Policies.Leader);
         groups.MapGet("/{groupId:guid}", (Guid groupId, Dispatcher d, CancellationToken ct) => d.Send(new GetGroup(groupId), ct));
+        groups.MapGet("/leader-options", (Dispatcher d, CancellationToken ct) => d.Send(new ListLeaderOptions(), ct)).RequireAuthorization(Policies.Admin);
+        groups.MapPost("", async (CreateGroup body, Dispatcher d, CancellationToken ct) =>
+        {
+            var group = await d.Send(body, ct);
+            return Results.Created($"/api/v1/groups/{group.Id}", group);
+        }).RequireAuthorization(Policies.Admin);
+        groups.MapPatch("/{groupId:guid}", (Guid groupId, UpdateGroup body, Dispatcher d, CancellationToken ct) =>
+            d.Send(body with { Id = groupId }, ct)).RequireAuthorization(Policies.Admin);
+        groups.MapPost("/{groupId:guid}/archive", async (Guid groupId, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(new ArchiveGroup(groupId), ct);
+            return Results.NoContent();
+        }).RequireAuthorization(Policies.Admin);
+        // Leaders register into their own group; the handler checks which group (§6.4).
+        groups.MapPost("/{groupId:guid}/members", async (Guid groupId, RegisterMember body, Dispatcher d, CancellationToken ct) =>
+        {
+            var member = await d.Send(body with { GroupId = groupId }, ct);
+            return Results.Created($"/api/v1/members/{member.Id}", member);
+        }).RequireAuthorization(Policies.Leader);
+
+        var members = v1.MapGroup("/members").WithTags("Members").RequireAuthorization(Policies.Leader);
+        members.MapGet("/{id:guid}", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new GetMember(id), ct));
+        members.MapPatch("/{id:guid}", (Guid id, UpdateMember body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct));
+        members.MapPost("/{id:guid}/status", (Guid id, ChangeMemberStatus body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct));
+        members.MapPost("/{id:guid}/role", (Guid id, ChangeMemberRole body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
+            .RequireAuthorization(Policies.Admin);
+        members.MapPost("/{id:guid}/move", (Guid id, MoveMember body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
+            .RequireAuthorization(Policies.Admin);
 
         var admin = v1.MapGroup("/admin").WithTags("Admin");
         admin.MapGet("/audit-logs", (Guid? actorId, string? action, string? entityType, DateTimeOffset? from, DateTimeOffset? to,

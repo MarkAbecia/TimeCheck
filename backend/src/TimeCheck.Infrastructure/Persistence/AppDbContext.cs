@@ -22,7 +22,7 @@ public sealed class AppDbContext(
     DbContextOptions<AppDbContext> options, FieldEncryptor encryptor, IBlindIndexer blindIndexer, ITenantScope tenant)
     : DbContext(options), IAppDbContext
 {
-    private const string MobileBidx = "MobileBidx", NameBirthdateBidx = "NameBirthdateBidx";
+    private const string MobileBidx = BlindIndexColumns.Mobile, NameBirthdateBidx = BlindIndexColumns.NameBirthdate;
 
     // Read per query: EF parameterizes context members used in query filters.
     private Guid? TenantChurchId => tenant.ChurchId;
@@ -54,10 +54,6 @@ public sealed class AppDbContext(
         }
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
-
-    /// <summary>For dedup queries: EF.Property&lt;string&gt;(u, AppDbContext.MobileBidxProperty).</summary>
-    public const string MobileBidxProperty = MobileBidx;
-    public const string NameBirthdateBidxProperty = NameBirthdateBidx;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

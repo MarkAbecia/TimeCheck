@@ -29,12 +29,7 @@ export function EventPass({ pass }: { pass: Pass }) {
       aria-labelledby={`pass-${pass.id}`}
       className="relative grid min-h-24 grid-cols-[1fr_6rem] overflow-hidden rounded-[10px] border border-border bg-card"
     >
-      <div
-        className={cn(
-          "min-w-0 border-t-[6px] px-3.5 pt-3 pb-3.5",
-          pass.kind === "group" ? "border-band-group" : "border-band-church",
-        )}
-      >
+      <div className={cn("min-w-0 border-t-[6px] px-3.5 pt-3 pb-3.5", pass.kind === "group" ? "border-band-group" : "border-band-church")}>
         <span className="sr-only">{pass.kind === "group" ? t("groupEvent") : t("churchEvent")}. </span>
         <p className="tabular text-[0.8125rem] font-semibold text-muted-foreground">{pass.timeLabel}</p>
         <h3 id={`pass-${pass.id}`} className="mt-0.5 font-display text-2xl leading-[1.05] font-bold text-balance uppercase">
@@ -44,8 +39,14 @@ export function EventPass({ pass }: { pass: Pass }) {
       </div>
       <Stub stub={pass.stub} eventName={pass.name} />
       {/* Perforation notches, punched in the page colour where the stub meets the pass edges. */}
-      <span aria-hidden className="pointer-events-none absolute -top-2.5 right-[calc(6rem-0.625rem)] size-5 rounded-full border border-border bg-background" />
-      <span aria-hidden className="pointer-events-none absolute -bottom-2.5 right-[calc(6rem-0.625rem)] size-5 rounded-full border border-border bg-background" />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -top-2.5 right-[calc(6rem-0.625rem)] size-5 rounded-full border border-border bg-background"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-2.5 right-[calc(6rem-0.625rem)] size-5 rounded-full border border-border bg-background"
+      />
     </article>
   );
 }
@@ -62,14 +63,15 @@ function Stub({ stub, eventName }: { stub: PassStub; eventName: string }) {
       return (
         <Link
           href={stub.href}
-          aria-label={t("checkInFor", { event: eventName })}
           className={cn(
             stubBase,
             "border-l-primary/40 bg-primary text-primary-foreground transition-[background-color] duration-150 hover:bg-[color-mix(in_oklch,var(--primary),black_12%)] active:bg-[color-mix(in_oklch,var(--primary),black_20%)]",
           )}
         >
-          <span className="font-display text-[0.9375rem] leading-tight font-bold tracking-[0.06em] uppercase">{t("checkIn")}</span>
-          <span className="tabular mt-0.5 text-xs">{t("ofTotal", { present: 0, total: stub.total })}</span>
+          <span className="font-display text-[0.9375rem] leading-tight font-bold tracking-[0.06em] uppercase">{t("checkIn")}</span>{" "}
+          <span className="tabular mt-0.5 text-xs">{t("ofTotal", { present: 0, total: stub.total })}</span>{" "}
+          {/* Name = the visible words first (WCAG 2.5.3), then which event. */}
+          <span className="sr-only">{t("forEvent", { event: eventName })}</span>
         </Link>
       );
     case "done":

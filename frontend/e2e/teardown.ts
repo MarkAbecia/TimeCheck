@@ -1,0 +1,29 @@
+import { execFileSync } from "node:child_process";
+import { E2E_DOMAIN } from "./helpers";
+
+// Removes the people the specs registered (only @e2e.timecheck.test), with everything that points at them.
+// shortcut: goes through `docker exec` into the local Supabase db container; use a direct connection when e2e runs in CI.
+const SQL = `
+begin;
+create temp table gone as
+  select a.id, a.auth_user_id from public.app_users a join auth.users u on u.id = a.auth_user_id where u.email like '%@${E2E_DOMAIN}';
+delete from public.group_memberships where user_id in (select id from gone);
+delete from public.member_status_changes where user_id in (select id from gone);
+delete from public.role_changes where user_id in (select id from gone);
+delete from public.notifications where user_id in (select id from gone);
+delete from public.audit_logs where actor_id in (select id from gone) or entity_id in (select id::text from gone);
+delete from public.app_users where id in (select id from gone);
+delete from auth.users where id in (select auth_user_id from gone) or email like '%@${E2E_DOMAIN}';
+commit;`;
+
+export default function teardown() {
+  const container = process.env.E2E_DB_CONTAINER ?? "supabase_db_timecheck";
+  try {
+    execFileSync("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], {
+      input: SQL,
+      stdio: ["pipe", "ignore", "inherit"],
+    });
+  } catch (e) {
+    console.warn(`e2e teardown could not remove test users: ${(e as Error).message}`);
+  }
+}

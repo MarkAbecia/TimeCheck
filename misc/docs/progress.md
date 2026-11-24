@@ -125,8 +125,54 @@
   - Two concurrent enrolments clashed on the factor name; names are now unique, and the page starts one enrolment per mount.
   - GoTrue and API calls had no timeout; both now time out after 10 s and release failed responses.
 
+## Phase 5 — Members & groups (code written, not yet verified)
+
+Built:
+- **Members (Application/Features/Members):**
+  - Register into a group (leader of that group, or admin).
+  - A matching email is a hard 409. A matching mobile or name+birthdate is a warning the leader must confirm. Matches report only the field and whether it's in the same group.
+  - Get and edit (their leader or an admin), status change, role change (admins; admin roles super admin only), move between groups (admins).
+  - Out-of-reach ids are 404. Editing yourself here is 403 (use the profile).
+  - Role changes write a `notifications` outbox row (in_app + email; delivery in Phase 9) and evict the user cache.
+  - Demoting a leader who still leads a group is a 409.
+- **Groups:** list (admins all, leaders their own), leader options, create, rename and assign a leader (LEADER or above), archive (only when empty).
+- **Sign-in accounts:** `IAuthAdmin.InviteUserAsync` / `DeleteUserAsync`. A scoped `UnitOfWork` in the Dispatcher runs rollback hooks (delete the new auth user) when a request fails, and cache evictions after commit.
+- **Invite email:** `templates/invite.html` links to `/auth/confirm?type=invite`; the new user lands on "Choose your password".
+- **BFF:** `/api/bff/[...path]` forwards GET/POST/PATCH for `me`, `members` and `groups` only (same-origin on writes, 64 KB cap). `lib/server/api.ts` is the server-component GET (403/404 become not found).
+- **Profile password change:** `/api/auth/password` now requires and checks the current password when the session came from a password sign-in and no change is owed. Email-link sessions (reset, invite) and the forced first change don't need it.
+- **Screens:**
+  - `/members` (group chips for admins or multi-group leaders), `/members/new` (guardian section for under-18s, duplicate-confirm step), `/members/[id]` (status, role and group controls, plus the edit form).
+  - `/groups` (admins) and `/profile` (nickname, mobile, address, password).
+  - Pages above a user's role are 404 (`requireRole`).
+- **Tests:**
+  - `MembersTests` and `GroupManagementTests`: registration, guardian rules, duplicates, IDOR 403/404s, audit without PII, role/MFA policy, notification, demote-leader 409, move history, groups per role, create/rename/archive.
+  - `member.test.ts` for the form schema.
+
+Checked:
+- **Automated:** backend 65/65 tests (37 integration, including the member move against the one-active-membership index). Frontend typecheck, lint, 40 unit tests and the production build pass.
+  - Test data fix: the integration tests share one database, so `NewMember` now uses a unique surname. `Leader_sees_own_group` checks for the seeded pair rather than an exact count.
+- **Live, through the BFF as the seeded leader:**
+  - Registration returns 201 and is refused without a same-origin header.
+  - The "You're invited to TimeCheck" email arrives in Mailpit. Its link signs the user in, and setting a password returns 204. The new user then owes only consent. The link can't be reused, and the new password signs in.
+  - The duplicate warning fires for the same mobile written as +63, without naming who matched.
+  - The member detail page renders; `/groups` is not found for a leader.
+  - Profile password change: no current password or a wrong one gets 403, the right one gets 204.
+  - Test accounts removed afterwards.
+- **Note:** after editing `[auth.email.template.*]` in `config.toml`, run `supabase stop` then `supabase start`. A container restart keeps the old templates.
+
+### Playwright e2e (`frontend/e2e`, `npm run e2e`): 57 passing
+- **Flows** (390×844):
+  - Wrong password; a member's sign-in, the not-found Members page, the profile's current-password requirement, sign-out.
+  - A leader registers a member, then the member opens the Mailpit invite, chooses a password, consents and reaches Today. The link is single use.
+  - Minor guardian rule; duplicate warning, then "Register anyway"; status change persists.
+- **axe** (WCAG 2.2 AA tags) on sign-in, forgot password, Today, Members, Register and Profile at all five §13 viewports in light and dark.
+- **The first run caught two real issues, now fixed:**
+  - The profile Save button was dimmed to 60% opacity until edited, which failed contrast.
+  - The Today check-in stub's `aria-label` didn't contain its visible text (WCAG 2.5.3). It is now the visible words plus screen-reader-only "for {event}".
+- **Setup:** one leader sign-in is shared through `storageState`, so the login rate limit isn't hit. Teardown deletes the people registered under `@e2e.timecheck.test`.
+
 ## Known gaps / next
-- Playwright e2e (sign-in, onboarding, axe at the five viewports, §11.3/§13) is still not written. It should automate the flows checked by hand above.
+- E2e doesn't cover admin screens (groups, role and move), because admins need TOTP codes. That needs a TOTP helper and a known seeded factor. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).
 - Docker Desktop on this machine has dropped host port forwarding a few times. If Supabase stops answering after a restart, `docker restart supabase_kong_timecheck supabase_inbucket_timecheck` (and `supabase_db_timecheck` for the API) brings the ports back.
 - Docker base images use tags; pin digests before production.
 - Next dev mode logs CSP warnings for inline styles injected by the dev tooling. The production build doesn't (checked in Phase 3).

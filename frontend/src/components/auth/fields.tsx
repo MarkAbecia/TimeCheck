@@ -92,3 +92,61 @@ export function SubmitButton({ pending, label, pendingLabel }: { pending: boolea
     </Button>
   );
 }
+
+type SelectProps = {
+  label: string;
+  registration: UseFormRegisterReturn;
+  error?: FieldError;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+} & Omit<React.ComponentProps<"select">, "id" | keyof UseFormRegisterReturn>;
+
+// A native select: the phone's own picker is the most usable one for every age group.
+export function SelectField({ label, registration, error, options, placeholder, ...select }: SelectProps) {
+  const t = useTranslations("errors");
+  const id = useId();
+  const errorId = `${id}-error`;
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className="h-11 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30"
+        {...select}
+        {...registration}
+      >
+        {placeholder !== undefined && <option value="">{placeholder}</option>}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {error?.message && <FieldMessage id={errorId}>{t(error.message)}</FieldMessage>}
+    </div>
+  );
+}
+
+export function CheckField({ label, registration, error }: { label: string; registration: UseFormRegisterReturn; error?: FieldError }) {
+  const t = useTranslations("errors");
+  const id = useId();
+  const errorId = `${id}-error`;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="flex min-h-11 items-start gap-3 text-sm">
+        <input
+          id={id}
+          type="checkbox"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className="mt-0.5 size-5 shrink-0 accent-primary"
+          {...registration}
+        />
+        <span>{label}</span>
+      </label>
+      {error?.message && <FieldMessage id={errorId}>{t(error.message)}</FieldMessage>}
+    </div>
+  );
+}

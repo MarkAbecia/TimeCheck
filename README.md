@@ -29,3 +29,15 @@ cd backend/src/TimeCheck.Api && dotnet user-secrets set Auth:ServiceRoleKey <SEC
 
 Dev accounts (seed only): `super@`, `admin@`, `leader@`, `member@`, `leader2@`, `member2@timecheck.test`, password `TimeCheck-dev-123!`. Admins enrol TOTP on first sign-in. Reset emails land in Mailpit at http://127.0.0.1:55424.
 Requirements: [misc/docs/REQUIREMENTS.md](misc/docs/REQUIREMENTS.md). Progress: [misc/docs/progress.md](misc/docs/progress.md).
+
+## End-to-end tests
+
+With the whole local stack running (Supabase, Redis, API), from `frontend/`:
+
+```bash
+npm run e2e                         # flows + axe at the five §13 viewports, light and dark
+npx playwright test --project=flows # just the journeys
+```
+
+The tests use your installed Chrome (`PW_CHANNEL=` with `npx playwright install chromium` for the bundled one) and start `npm run dev` on :3400 unless it's already running. They read invite emails from Mailpit. Teardown deletes the people they registered (emails `@e2e.timecheck.test`) through `docker exec` into `supabase_db_timecheck`.
+After changing an email template in `database/supabase/config.toml`, run `npx supabase stop` then `npx supabase start`. Restarting the containers keeps the old templates.

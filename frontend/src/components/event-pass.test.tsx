@@ -13,9 +13,9 @@ const pass = (stub: PassStub): Pass => ({
 });
 
 describe("EventPass stub states", () => {
-  it("todo: the stub is the check-in link, named for the event", () => {
+  it("todo: the stub is the check-in link, named by its visible words then the event", () => {
     renderWithIntl(<EventPass pass={pass({ state: "todo", total: 20, href: "/events/p" })} />);
-    const link = screen.getByRole("link", { name: "Check in for Cell Meeting" });
+    const link = screen.getByRole("link", { name: "Check in 0 of 20 for Cell Meeting" });
     expect(link).toHaveAttribute("href", "/events/p");
     expect(screen.getByText("0 of 20")).toBeInTheDocument();
   });

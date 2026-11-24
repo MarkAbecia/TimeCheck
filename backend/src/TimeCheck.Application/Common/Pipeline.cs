@@ -38,10 +38,23 @@ public sealed class AuditScope
     }
 }
 
+/// <summary>
+/// Side effects outside the database transaction. Rollback hooks undo external calls made by a handler when the
+/// request fails (e.g. delete an invited auth user); after-commit hooks run once the data is saved (cache eviction).
+/// </summary>
+public sealed class UnitOfWork
+{
+    internal readonly List<Func<Task>> Rollback = [];
+    internal readonly List<Func<Task>> Committed = [];
+
+    public void OnRollback(Func<Task> undo) => Rollback.Add(undo);
+    public void AfterCommit(Func<Task> action) => Committed.Add(action);
+}
+
 /// <summary>validate → handle → audit → save (one transaction via SaveChanges). Handlers never call SaveChanges.</summary>
 public sealed class Dispatcher(
     IServiceProvider services, IAppDbContext db, ICurrentUser currentUser, IRequestContext requestContext,
-    IBlindIndexer blindIndexer, AuditScope auditScope)
+    IBlindIndexer blindIndexer, AuditScope auditScope, UnitOfWork unitOfWork)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -58,8 +71,29 @@ public sealed class Dispatcher(
 
         var handlerType = typeof(IRequestHandler<,>).MakeGenericType(requestType, typeof(TResult));
         var handler = services.GetRequiredService(handlerType);
-        var response = await (Task<TResult>)handlerType.GetMethod("Handle")!.Invoke(handler, [request, ct])!;
+        TResult response;
+        try
+        {
+            response = await (Task<TResult>)handlerType.GetMethod("Handle")!.Invoke(handler, [request, ct])!;
+            WriteAudit(request);
+            await db.SaveChangesAsync(ct); // no-op for queries
+        }
+        catch
+        {
+            foreach (var undo in unitOfWork.Rollback) await undo();
+            throw;
+        }
 
+        foreach (var action in unitOfWork.Committed)
+        {
+            try { await action(); }
+            catch (Exception e) when (e is not OperationCanceledException) { /* best effort: the change is already saved */ }
+        }
+        return response;
+    }
+
+    private void WriteAudit(object request)
+    {
         if (request is IAuditedRequest audited)
         {
             var user = currentUser.Info;
@@ -70,10 +104,6 @@ public sealed class Dispatcher(
                 requestContext.IpAddress is { } ip ? blindIndexer.Ip(ip) : null,
                 requestContext.UserAgent, requestContext.CorrelationId));
         }
-
-        await db.SaveChangesAsync(ct); // no-op for queries
-
-        return response;
     }
 }
 
@@ -91,6 +121,7 @@ public static class ApplicationServiceCollectionExtensions
             }
         }
         services.AddScoped<AuditScope>();
+        services.AddScoped<UnitOfWork>();
         services.AddScoped<Dispatcher>();
         return services;
     }

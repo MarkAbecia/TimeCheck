@@ -33,7 +33,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>A fresh account: forced password change and privacy consent still owed.</summary>
     public static readonly Guid NewcomerAuth = Guid.Parse("30000000-0000-0000-0000-000000000077");
 
-    public FakeAuthAdmin AuthAdmin { get; } = new();
+    public FakeAuthAdmin AuthAdmin { get; }
+
+    public ApiFactory() => AuthAdmin = new FakeAuthAdmin(() => _pg.GetConnectionString());
     public static readonly Guid LeaderAppId = Guid.Parse("10000000-0000-0000-0000-000000000003");
     public static readonly Guid Group1 = Guid.Parse("20000000-0000-0000-0000-000000000001");
     public static readonly Guid Group2 = Guid.Parse("20000000-0000-0000-0000-000000000002");
@@ -163,10 +165,40 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         """;
 }
 
-/// <summary>Stands in for the Supabase admin API; records calls, never sees a real key.</summary>
-public sealed class FakeAuthAdmin : TimeCheck.Application.Abstractions.IAuthAdmin
+/// <summary>Stands in for the Supabase admin API; records calls, never sees a real key. Invites write auth.users like GoTrue does.</summary>
+public sealed class FakeAuthAdmin(Func<string> connectionString) : TimeCheck.Application.Abstractions.IAuthAdmin
 {
     public List<Guid> PasswordSetFor { get; } = [];
+    public List<string> Invited { get; } = [];
+    public List<Guid> Deleted { get; } = [];
+
+    public async Task<Guid> InviteUserAsync(string email, CancellationToken ct)
+    {
+        await using var conn = new NpgsqlConnection(connectionString());
+        await conn.OpenAsync(ct);
+        await using (var check = new NpgsqlCommand("select count(*) from auth.users where email = @e", conn))
+        {
+            check.Parameters.AddWithValue("e", email);
+            if ((long)(await check.ExecuteScalarAsync(ct))! > 0) throw new TimeCheck.Application.Common.ConflictException("An account with this email already exists.");
+        }
+        var id = Guid.NewGuid();
+        await using var insert = new NpgsqlCommand("insert into auth.users (id, email) values (@id, @e)", conn);
+        insert.Parameters.AddWithValue("id", id);
+        insert.Parameters.AddWithValue("e", email);
+        await insert.ExecuteNonQueryAsync(ct);
+        lock (Invited) Invited.Add(email);
+        return id;
+    }
+
+    public async Task DeleteUserAsync(Guid authUserId, CancellationToken ct)
+    {
+        await using var conn = new NpgsqlConnection(connectionString());
+        await conn.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand("delete from auth.users where id = @id", conn);
+        cmd.Parameters.AddWithValue("id", authUserId);
+        await cmd.ExecuteNonQueryAsync(ct);
+        lock (Deleted) Deleted.Add(authUserId);
+    }
 
     public Task SetPasswordAsync(Guid authUserId, string newPassword, CancellationToken ct)
     {

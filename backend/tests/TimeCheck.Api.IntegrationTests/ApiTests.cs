@@ -92,7 +92,9 @@ public class AuthorizationTests(ApiFactory factory)
     public async Task Leader_sees_own_group()
     {
         var group = await factory.ClientFor(ApiFactory.LeaderAuth).GetFromJsonAsync<JsonElement>($"/api/v1/groups/{ApiFactory.Group1}");
-        group.GetProperty("members").GetArrayLength().Should().Be(2);
+        // Other tests register people into group 1, so check the seeded pair rather than a count.
+        group.GetProperty("members").EnumerateArray().Select(m => m.GetProperty("id").GetGuid())
+            .Should().Contain([ApiFactory.LeaderAppId, Guid.Parse("10000000-0000-0000-0000-000000000004")]);
     }
 
     [Theory]

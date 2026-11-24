@@ -24,3 +24,8 @@ export const resetSchema = z
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotInput = z.infer<typeof forgotSchema>;
 export type ResetInput = z.infer<typeof resetSchema>;
+
+export const changePasswordSchema = z
+  .object({ current: z.string().min(1, "passwordRequired"), password: newPassword, confirm: z.string().min(1, "passwordRequired") })
+  .refine((v) => v.password === v.confirm, { message: "passwordsDontMatch", path: ["confirm"] });
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

@@ -13,6 +13,16 @@ public sealed class ForbiddenException(string message = "You don't have access t
 /// <summary>Mapped to 409.</summary>
 public sealed class ConflictException(string message) : Exception(message);
 
+/// <summary>A possible duplicate person. Field is "mobile" or "nameBirthdate"; no details of the other person are revealed.</summary>
+public sealed record DuplicateMatch(string Field, bool SameGroup);
+
+/// <summary>Mapped to 409 with the matches; the client asks the user to confirm and resends with confirmDuplicates.</summary>
+public sealed class DuplicateWarningException(IReadOnlyList<DuplicateMatch> matches)
+    : Exception("This might be someone who is already registered.")
+{
+    public IReadOnlyList<DuplicateMatch> Matches { get; } = matches;
+}
+
 public sealed record CursorPage<T>(IReadOnlyList<T> Items, string? NextCursor);
 
 /// <summary>Opaque keyset cursor: (timestamp, id).</summary>

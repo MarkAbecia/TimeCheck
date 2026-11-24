@@ -6,7 +6,7 @@ export const ACCESS_COOKIE = "tc_at";
 export const REFRESH_COOKIE = "tc_rt";
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 30; // Supabase refresh tokens rotate on use; this bounds an idle session.
 
-export type Claims = { sub: string; exp: number; aal?: "aal1" | "aal2" };
+export type Claims = { sub: string; exp: number; aal?: "aal1" | "aal2"; email?: string; amr?: { method: string }[] };
 
 export function readClaims(token: string | undefined): Claims | null {
   if (!token) return null;

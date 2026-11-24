@@ -1,7 +1,7 @@
 import type { ForgotInput, LoginInput } from "./validation/auth";
 
 export type AuthError =
-  "invalidCredentials" | "rateLimited" | "offline" | "unexpected" | "resetExpired" | "weakPassword" | "mfaWrong" | "consentStale";
+  "invalidCredentials" | "rateLimited" | "offline" | "unexpected" | "resetExpired" | "weakPassword" | "mfaWrong" | "consentStale" | "currentPasswordWrong";
 export type AuthResult<T = undefined> = { ok: true; data: T } | { ok: false; error: AuthError };
 
 // BFF route handlers (/api/auth/*) hold the session in httpOnly cookies; tokens never reach client JS (§6.1).
@@ -35,6 +35,8 @@ export const login = (input: LoginInput) =>
 export const requestReset = (input: ForgotInput) => post("/api/auth/forgot-password", input, {});
 // 401: the reset (or first-login) session is gone; 400: the password failed the server's policy.
 export const setPassword = (password: string) => post("/api/auth/password", { password }, { 400: "weakPassword", 401: "resetExpired" });
+export const changePassword = (currentPassword: string, password: string) =>
+  post("/api/auth/password", { currentPassword, password }, { 400: "weakPassword", 403: "currentPasswordWrong" });
 
 export type MfaEnrollment = {
   factorId: string;

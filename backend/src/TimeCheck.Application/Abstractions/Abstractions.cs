@@ -22,6 +22,19 @@ public interface IAuthAdmin
 {
     /// <summary>Throws <see cref="FluentValidation.ValidationException"/> when Supabase rejects the password.</summary>
     Task SetPasswordAsync(Guid authUserId, string newPassword, CancellationToken ct);
+
+    /// <summary>Creates the sign-in account and emails an invite link (§6.4). Throws ConflictException if the email is taken.</summary>
+    Task<Guid> InviteUserAsync(string email, CancellationToken ct);
+
+    /// <summary>Removes a sign-in account; used to undo an invite when saving the member fails.</summary>
+    Task DeleteUserAsync(Guid authUserId, CancellationToken ct);
+}
+
+/// <summary>Shadow columns holding blind indexes on app_users, for dedup queries via EF.Property.</summary>
+public static class BlindIndexColumns
+{
+    public const string Mobile = "MobileBidx";
+    public const string NameBirthdate = "NameBirthdateBidx";
 }
 
 public static class Onboarding

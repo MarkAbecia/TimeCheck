@@ -4,6 +4,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using TimeCheck.Application.Abstractions;
+using TimeCheck.Application.Common;
 
 namespace TimeCheck.Infrastructure.Security;
 
@@ -30,4 +31,28 @@ public sealed class SupabaseAuthAdmin(HttpClient http, ILogger<SupabaseAuthAdmin
         logger.LogError("Supabase admin password update failed with {Status}", (int)res.StatusCode);
         res.EnsureSuccessStatusCode();
     }
+
+    public async Task<Guid> InviteUserAsync(string email, CancellationToken ct)
+    {
+        // GoTrue creates the user and sends the invite template, which links to /auth/confirm?type=invite.
+        using var res = await http.PostAsJsonAsync("auth/v1/invite", new { email }, ct);
+        if (res.StatusCode is HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict)
+            throw new ConflictException("An account with this email already exists.");
+        if (!res.IsSuccessStatusCode)
+        {
+            logger.LogError("Supabase invite failed with {Status}", (int)res.StatusCode);
+            res.EnsureSuccessStatusCode();
+        }
+        var user = await res.Content.ReadFromJsonAsync<InvitedUser>(ct);
+        return user?.Id ?? throw new InvalidOperationException("Supabase invite returned no user id.");
+    }
+
+    public async Task DeleteUserAsync(Guid authUserId, CancellationToken ct)
+    {
+        using var res = await http.DeleteAsync($"auth/v1/admin/users/{authUserId}", ct);
+        if (!res.IsSuccessStatusCode && res.StatusCode != HttpStatusCode.NotFound)
+            logger.LogError("Supabase delete user failed with {Status}", (int)res.StatusCode);
+    }
+
+    private sealed record InvitedUser(Guid Id);
 }
