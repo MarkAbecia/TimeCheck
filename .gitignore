@@ -1,0 +1,27 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+# node
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+next-env.d.ts
+# dotnet
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+# supabase
+database/supabase/.branches/
+database/supabase/.temp/
+# os/editor
+.DS_Store
+Thumbs.db
+.idea/

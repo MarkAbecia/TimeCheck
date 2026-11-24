@@ -1,0 +1,16 @@
+name: ci-database
+on:
+  pull_request: { paths: ["database/**", ".github/workflows/ci-database.yml"] }
+  push: { branches: [main], paths: ["database/**"] }
+permissions: { contents: read }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: database } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+      - run: supabase db lint --level error
+      - run: supabase test db

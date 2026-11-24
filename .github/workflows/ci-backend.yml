@@ -1,0 +1,21 @@
+name: ci-backend
+on:
+  pull_request: { paths: ["backend/**", "database/supabase/migrations/**", ".github/workflows/ci-backend.yml"] }
+  push: { branches: [main], paths: ["backend/**"] }
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
+      - run: dotnet restore
+      - run: dotnet format --verify-no-changes --no-restore
+      - run: dotnet build --no-restore -c Release
+      - run: dotnet test --no-build -c Release   # integration tests use Testcontainers (Docker is available on ubuntu runners)
+      - name: Vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vuln.txt
+          ! grep -qiE "\b(High|Critical)\b" vuln.txt

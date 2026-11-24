@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dev-only keys for the local Supabase stack"
+paths = [ '''backend/src/TimeCheck\.(Api|Worker)/appsettings\.Development\.json''', '''database/supabase/seed\.sql''' ]

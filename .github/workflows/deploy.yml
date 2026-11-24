@@ -1,0 +1,31 @@
+name: deploy
+# staging: on push to main. production: on a v* tag (requires the `production` environment approval).
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+permissions: { contents: read }
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'staging' }}
+    defaults: { run: { working-directory: database } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: supabase db push --db-url "$SUPABASE_DB_URL"
+        env: { SUPABASE_DB_URL: "${{ secrets.SUPABASE_DB_URL }}" }
+
+  deploy:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'staging' }}
+    steps:
+      - name: Trigger Render deploys
+        run: |
+          for hook in "$WEB_HOOK" "$API_HOOK" "$WORKER_HOOK"; do curl -fsS -X POST "$hook"; done
+        env:
+          WEB_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
+          API_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+          WORKER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WORKER }}

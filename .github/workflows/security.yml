@@ -1,0 +1,50 @@
+name: security
+on:
+  pull_request:
+  push: { branches: [main] }
+  schedule: [{ cron: "0 3 * * 1" }]
+permissions: { contents: read, security-events: write }
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    strategy: { matrix: { language: [csharp, javascript-typescript] } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        if: matrix.language == 'csharp'
+        with: { dotnet-version: "10.0.x" }
+      - uses: github/codeql-action/init@v3
+        with: { languages: "${{ matrix.language }}", build-mode: "${{ matrix.language == 'csharp' && 'manual' || 'none' }}" }
+      - if: matrix.language == 'csharp'
+        run: dotnet build backend -c Release
+      - uses: github/codeql-action/analyze@v3
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+  trivy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: web, context: frontend, file: frontend/Dockerfile }
+          - { name: api, context: backend, file: backend/Dockerfile.api }
+          - { name: worker, context: backend, file: backend/Dockerfile.worker }
+    steps:
+      - uses: actions/checkout@v4
+      - id: has
+        run: test -f ${{ matrix.file }} && echo "ok=true" >> "$GITHUB_OUTPUT" || echo "ok=false" >> "$GITHUB_OUTPUT"
+      - if: steps.has.outputs.ok == 'true'
+        run: docker build -t timecheck-${{ matrix.name }}:ci -f ${{ matrix.file }} ${{ matrix.context }}
+      - if: steps.has.outputs.ok == 'true'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: timecheck-${{ matrix.name }}:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

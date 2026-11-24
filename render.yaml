@@ -1,0 +1,70 @@
+# Render Blueprint. Secret values live in the dashboard (timecheck-secrets), never here.
+envVarGroups:
+  - name: timecheck-shared
+    envVars:
+      - key: CHURCH_TIMEZONE
+        value: Asia/Manila
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+  - name: timecheck-secrets
+    envVars:
+      - key: Auth__SupabaseUrl
+        sync: false
+      - key: Supabase__ServiceRoleKey      # backend/worker only, never the web service
+        sync: false
+      - key: ConnectionStrings__Default    # API: Supavisor transaction mode; Worker overrides with session mode
+        sync: false
+      - key: ConnectionStrings__Hangfire   # session mode / direct
+        sync: false
+      - key: Encryption__ActiveKeyId
+        sync: false
+      - key: Encryption__Keys__1
+        sync: false
+      - key: Encryption__BlindIndexKey
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        sync: false
+
+services:
+  - type: web
+    name: timecheck-web
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: timecheck-shared
+      - key: API_INTERNAL_URL
+        fromService: { type: web, name: timecheck-api, property: hostport }
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+
+  - type: web
+    name: timecheck-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.api
+    dockerContext: ./backend
+    healthCheckPath: /health/ready
+    envVars:
+      - fromGroup: timecheck-shared
+      - fromGroup: timecheck-secrets
+      - key: Redis__Configuration
+        fromService: { type: keyvalue, name: timecheck-redis, property: connectionString }
+
+  - type: worker
+    name: timecheck-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.worker
+    dockerContext: ./backend
+    envVars:
+      - fromGroup: timecheck-shared
+      - fromGroup: timecheck-secrets
+      - key: Redis__Configuration
+        fromService: { type: keyvalue, name: timecheck-redis, property: connectionString }
+
+  - type: keyvalue
+    name: timecheck-redis
+    ipAllowList: []            # private network only
+    maxmemoryPolicy: volatile-lru  # evict cache keys (with TTL) first; rate-limit keys also carry TTLs

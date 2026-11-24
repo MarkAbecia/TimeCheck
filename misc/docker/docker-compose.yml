@@ -1,0 +1,25 @@
+# Local dev: Redis (+ optional API/worker containers). Postgres/Auth/Storage come from `npx supabase start` in database/.
+services:
+  redis:
+    image: redis:7.4-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server", "--maxmemory-policy", "volatile-lru"]
+
+  api:
+    profiles: ["full"]
+    build: { context: ../../backend, dockerfile: Dockerfile.api }
+    ports: ["8080:8080"]
+    env_file: ../../backend/.env
+    environment:
+      Redis__Configuration: redis:6379
+    depends_on: [redis]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  worker:
+    profiles: ["full"]
+    build: { context: ../../backend, dockerfile: Dockerfile.worker }
+    env_file: ../../backend/.env
+    environment:
+      Redis__Configuration: redis:6379
+    depends_on: [redis]
+    extra_hosts: ["host.docker.internal:host-gateway"]

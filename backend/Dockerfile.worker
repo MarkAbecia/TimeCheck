@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+# shortcut: tags not digests; pin @sha256 digests before the first production deploy (§12).
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY Directory.Build.props TimeCheck.sln ./
+COPY src/ src/
+RUN dotnet publish src/TimeCheck.Worker/TimeCheck.Worker.csproj -c Release -o /app --no-self-contained
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+ENV ASPNETCORE_URLS=http://+:8080 DOTNET_RUNNING_IN_CONTAINER=true
+COPY --from=build /app .
+USER $APP_UID
+ENTRYPOINT ["dotnet", "TimeCheck.Worker.dll"]
