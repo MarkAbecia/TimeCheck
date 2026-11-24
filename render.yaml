@@ -10,7 +10,7 @@ envVarGroups:
     envVars:
       - key: Auth__SupabaseUrl
         sync: false
-      - key: Supabase__ServiceRoleKey      # backend/worker only, never the web service
+      - key: Auth__ServiceRoleKey          # backend/worker only, never the web service
         sync: false
       - key: ConnectionStrings__Default    # API: Supavisor transaction mode; Worker overrides with session mode
         sync: false

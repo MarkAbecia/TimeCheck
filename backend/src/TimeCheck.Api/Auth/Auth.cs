@@ -15,10 +15,20 @@ public sealed class AuthOptions
     public string Audience { get; set; } = "authenticated";
     /// <summary>Admins and Super Admins must present an aal2 (MFA) session (§6.1).</summary>
     public bool RequireAdminMfa { get; set; } = true;
+    /// <summary>Privacy notice version users must accept (§8.4). Bump it when the notice changes; everyone re-consents.</summary>
+    public string PrivacyConsentVersion { get; set; } = "2026-11";
+}
+
+public sealed class ConfiguredAccountPolicy(Microsoft.Extensions.Options.IOptions<AuthOptions> options) : IAccountPolicy
+{
+    public string PrivacyConsentVersion => options.Value.PrivacyConsentVersion;
+    public bool RequireAdminMfa => options.Value.RequireAdminMfa;
 }
 
 public static class Policies
 {
+    /// <summary>Signed in, but onboarding (password change, privacy consent) may still be owed. Only /me uses it.</summary>
+    public const string SignedIn = "signed_in";
     public const string Leader = "leader";
     public const string Admin = "admin";
     public const string SuperAdmin = "super_admin";
@@ -51,12 +61,18 @@ public static class AuthSetup
             o.Events = new JwtBearerEvents { OnTokenValidated = AttachAppUser };
         });
 
+        // Everything except /me also requires finished onboarding, so a user who still owes the forced password
+        // change or the privacy consent can reach nothing else, whatever the client does (§6.1, §8.4).
         services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().RequireClaim(AppClaims.AppUserId).Build())
-            .AddPolicy(Policies.Leader, p => p.RequireAuthenticatedUser().AddRequirements(new RoleRequirement(UserRole.LEADER)))
-            .AddPolicy(Policies.Admin, p => p.RequireAuthenticatedUser().AddRequirements(new RoleRequirement(UserRole.ADMIN)))
-            .AddPolicy(Policies.SuperAdmin, p => p.RequireAuthenticatedUser().AddRequirements(new RoleRequirement(UserRole.SUPER_ADMIN)));
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().RequireClaim(AppClaims.AppUserId)
+                .AddRequirements(new OnboardedRequirement()).Build())
+            .AddPolicy(Policies.SignedIn, p => p.RequireAuthenticatedUser().RequireClaim(AppClaims.AppUserId))
+            .AddPolicy(Policies.Leader, p => p.RequireAuthenticatedUser().AddRequirements(new OnboardedRequirement(), new RoleRequirement(UserRole.LEADER)))
+            .AddPolicy(Policies.Admin, p => p.RequireAuthenticatedUser().AddRequirements(new OnboardedRequirement(), new RoleRequirement(UserRole.ADMIN)))
+            .AddPolicy(Policies.SuperAdmin, p => p.RequireAuthenticatedUser().AddRequirements(new OnboardedRequirement(), new RoleRequirement(UserRole.SUPER_ADMIN)));
         services.AddSingleton<IAuthorizationHandler, RoleRequirementHandler>();
+        services.AddSingleton<IAuthorizationHandler, OnboardedRequirementHandler>();
+        services.AddSingleton<IAccountPolicy, ConfiguredAccountPolicy>();
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
@@ -100,6 +116,18 @@ public sealed class RoleRequirementHandler(Microsoft.Extensions.Options.IOptions
         if (needsMfa && context.User.FindFirstValue("aal") != "aal2") return Task.CompletedTask;
 
         context.Succeed(requirement);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed record OnboardedRequirement : IAuthorizationRequirement;
+
+public sealed class OnboardedRequirementHandler(IAccountPolicy policy) : AuthorizationHandler<OnboardedRequirement>
+{
+    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, OnboardedRequirement requirement)
+    {
+        if ((context.Resource as HttpContext)?.Items[AuthItems.CurrentUser] is CurrentUserInfo info && info.IsComplete(policy))
+            context.Succeed(requirement);
         return Task.CompletedTask;
     }
 }

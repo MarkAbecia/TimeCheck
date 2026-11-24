@@ -45,6 +45,14 @@ public static class DependencyInjection
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(RedisConfiguration(config)));
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddSingleton<RedisRateLimiter>();
+
+        services.AddHttpClient<IAuthAdmin, SupabaseAuthAdmin>(http =>
+        {
+            http.BaseAddress = new Uri($"{(config["Auth:SupabaseUrl"] ?? "http://localhost").TrimEnd('/')}/");
+            // Read lazily so the API still starts (and tests run) without the key; calls then fail with 401.
+            http.DefaultRequestHeaders.Add("apikey", config["Auth:ServiceRoleKey"] ?? "");
+            http.Timeout = TimeSpan.FromSeconds(10);
+        });
         return services;
     }
 

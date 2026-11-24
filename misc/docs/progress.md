@@ -85,8 +85,48 @@
 - Impeccable finish review returned "fix". All 7 material fixes were applied: the stub fill ramp, a time-ordered Today, the cream church band in dark mode, the stamp only on marking, the upcoming stub showing day and time, the sample-data label, and light and login captures.
 - Hallmark audit: report in `misc/docs/audits/2026-11-24-hallmark-phase3.md`.
 
+## Phase 4 — Auth end to end (done, 2026-11-24)
+
+**Supabase (local)**
+- Asymmetric ES256 signing keys (`signing_keys.json`, gitignored), so the API validates local tokens through JWKS just like production.
+- `site_url` is :3400. The recovery email template links to `/auth/confirm?token_hash=…`.
+
+**Backend**
+- Onboarding gate, enforced server-side. Every policy except `SignedIn` requires no pending password change and the current privacy-consent version.
+- After any password change the BFF revokes the user's other sessions (GoTrue `logout?scope=others`); verified with two devices.
+- `POST /me/password`: the API sets the password through the Supabase admin API (`IAuthAdmin`), clears `must_change_password` and audits the change. The password never reaches the audit log.
+- `POST /me/privacy-consent`: the version must match `Auth:PrivacyConsentVersion`; stores the version and timestamp and audits it.
+- `/me` now also returns the required consent version, whether MFA is required, the church name and the group name.
+- The secret key comes from user-secrets or env (`Auth:ServiceRoleKey`), never from the repo.
+
+**BFF (Next.js route handlers)**
+- Login, logout, forgot-password, password, consent, MFA enrol and MFA verify, plus `/auth/confirm` for reset links.
+- Tokens live only in httpOnly cookies. Every POST checks the same origin. Rate limits are in Redis, falling back to in-memory.
+- Forgot-password always answers 204, so it never reveals whether an account exists.
+- `proxy.ts` is now the auth gate: silent token refresh, a redirect to `/login?next=…` when signed out, and `Cache-Control: private, no-store` on pages.
+
+**Screens**
+- The app shell uses the real session (name, role band, group, church).
+- Signed-in users are routed through `/change-password`, then `/mfa` (admins), then `/consent`, before the app opens.
+- `/reset-password` requires the recovery session. An expired link lands on forgot-password with an explanation.
+- Sign-out is a no-JS form POST: an icon beside the theme toggle on the sidebar and the phone app bar, and a "Not you? Sign out" link on each onboarding step.
+
+**Verified**
+- Frontend: lint, typecheck and build are green. Vitest: **35 pass**, including a new suite for the auth gate, token claims and onboarding-step order.
+- Backend: domain (16), application (7), architecture (5) and integration (**25 of 25**) tests all pass, including the new onboarding tests. The other-church fixture was updated for the onboarding gate.
+- Live against local Supabase:
+  - Sign-in and the forced password change (through the real admin API).
+  - Consent, then the shell showing the real user.
+  - Sign-out: the session is revoked, `/` redirects to sign-in, and no cookie is readable from JS.
+  - Admin MFA: sign-in goes to `/mfa`, which shows the QR code and the setup key. A wrong code shows the retry message. The right code opens the app with an `aal2` session and leaves exactly one verified factor. A returning admin is asked only for the code.
+  - Reset: the email reaches Mailpit with an `/auth/confirm?token_hash=…` link. The link signs the user in and opens "Choose a new password" with nothing secret left in the URL. Saving opens the app. Reusing the link lands on "That link has expired".
+- Live testing found three MFA enrolment bugs, all fixed:
+  - GoTrue returns the QR as a raw SVG document, not a data URL; the route now converts it.
+  - Two concurrent enrolments clashed on the factor name; names are now unique, and the page starts one enrolment per mount.
+  - GoTrue and API calls had no timeout; both now time out after 10 s and release failed responses.
+
 ## Known gaps / next
-- **Local Supabase signs tokens with the legacy HS256 secret.** Before Phase 4, generate asymmetric signing keys (`supabase gen signing-key`, `signing_keys_path` in config.toml) so the API's JWKS validation works locally too.
+- Playwright e2e (sign-in, onboarding, axe at the five viewports, §11.3/§13) is still not written. It should automate the flows checked by hand above.
+- Docker Desktop on this machine has dropped host port forwarding a few times. If Supabase stops answering after a restart, `docker restart supabase_kong_timecheck supabase_inbucket_timecheck` (and `supabase_db_timecheck` for the API) brings the ports back.
 - Docker base images use tags; pin digests before production.
-- Playwright visual + axe e2e at the five viewports (§11.3/§13) are not written yet; add with the first real flows in Phase 4.
-- Demo session/role comes from `TC_DEMO_ROLE` until the BFF session lands (Phase 4).
+- Next dev mode logs CSP warnings for inline styles injected by the dev tooling. The production build doesn't (checked in Phase 3).

@@ -5,10 +5,10 @@ import { ForgotForm } from "@/components/auth/forgot-form";
 
 export const metadata: Metadata = { title: "Reset password" };
 
-export default async function ForgotPasswordPage() {
-  const t = await getTranslations("auth");
+export default async function ForgotPasswordPage({ searchParams }: PageProps<"/forgot-password">) {
+  const [t, { expired }] = await Promise.all([getTranslations("auth"), searchParams]);
   return (
-    <AuthCard title={t("forgotTitle")} lead={t("forgotLead")}>
+    <AuthCard title={expired ? t("expiredLinkTitle") : t("forgotTitle")} lead={expired ? t("expiredLinkBody") : t("forgotLead")}>
       <ForgotForm />
     </AuthCard>
   );

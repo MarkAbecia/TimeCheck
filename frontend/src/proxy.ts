@@ -1,10 +1,55 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { gotrue, type AuthSession } from "@/lib/server/gotrue";
+import { ACCESS_COOKIE, REFRESH_COOKIE, clearSession, isStale, readClaims, writeSession } from "@/lib/server/tokens";
 
 const SONNER_CSS = "'sha256-StEaX+se6YS7pqjzrzMIA0KaX9zF/8zAhvQXZAe5epY='";
 
-// Security headers + a per-request CSP nonce (REQUIREMENTS §8.3). Next reads the nonce from the request's CSP header
-// and stamps it on its own scripts; next-themes gets it from `x-nonce`. Auth redirects for (app) routes land in Phase 4.
-export function proxy(request: NextRequest) {
+/** Pages reachable without a session. Everything else, (app) routes included, redirects to /login (§6.1 AC). */
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/confirm"];
+const isPublic = (path: string) => PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+
+/**
+ * Runs before every page: the auth gate with silent refresh (§6.1 "Expired sessions refresh silently"), then a
+ * per-request CSP nonce and security headers (§8.3). Signature checks and onboarding live behind it: the API
+ * verifies every token, and the (app) layout routes users who still owe a password change, MFA or consent.
+ */
+export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+
+  let access = request.cookies.get(ACCESS_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+  let refreshed: AuthSession | undefined;
+  if (isStale(readClaims(access)) && refreshToken) {
+    const r = await gotrue.refresh(refreshToken);
+    if (r.ok) {
+      refreshed = r.data;
+      access = r.data.accessToken;
+      // Server components in this same request must see the new token, not the expired one.
+      request.cookies.set(ACCESS_COOKIE, r.data.accessToken);
+      request.cookies.set(REFRESH_COOKIE, r.data.refreshToken);
+    }
+  }
+  const signedIn = !isStale(readClaims(access));
+
+  if (!signedIn && !isPublic(path)) {
+    const login = new URL("/login", request.url);
+    if (path !== "/") login.searchParams.set("next", `${path}${request.nextUrl.search}`);
+    const res = NextResponse.redirect(login);
+    if (refreshToken) clearSession(res.cookies); // a refresh token that no longer works is dead weight
+    return res;
+  }
+  if (signedIn && path === "/login") {
+    const res = NextResponse.redirect(new URL("/", request.url));
+    if (refreshed) writeSession(res.cookies, refreshed);
+    return res;
+  }
+
+  const response = withSecurityHeaders(request);
+  if (refreshed) writeSession(response.cookies, refreshed);
+  return response;
+}
+
+function withSecurityHeaders(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
 
@@ -37,6 +82,8 @@ export function proxy(request: NextRequest) {
   h.set("X-Frame-Options", "DENY");
   h.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=(), payment=(), usb=()");
   h.set("Cross-Origin-Opener-Policy", "same-origin");
+  // Signed-in pages carry personal data: never let a shared cache or the back-forward cache keep them.
+  h.set("Cache-Control", "private, no-store");
   if (!isDev) h.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   return response;
 }

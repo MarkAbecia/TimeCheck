@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import type { Session } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BottomTabs, SideNav } from "./nav-links";
 
@@ -81,6 +82,7 @@ export async function AppShell({ session, hour, children }: { session: Session; 
             <RoleBand session={session} className="mt-1 max-w-full truncate" />
           </div>
           <ThemeToggle className="lg:hidden" />
+          <SignOutButton label={t("auth.signOut")} variant="shell" />
         </div>
       </aside>
 
@@ -88,7 +90,10 @@ export async function AppShell({ session, hour, children }: { session: Session; 
       <header className="shell border-b border-shell-border bg-shell px-5 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 text-shell-foreground md:hidden">
         <div className="flex items-start justify-between gap-3">
           <Wordmark churchName={session.churchName} poweredBy={poweredBy} />
-          <ThemeToggle className="-mt-1.5 -mr-2" />
+          <div className="-mt-1.5 -mr-2 flex">
+            <ThemeToggle />
+            <SignOutButton label={t("auth.signOut")} variant="shell" />
+          </div>
         </div>
         <div className="mt-3.5 flex items-center gap-2.5">
           <Avatar initials={session.initials} />

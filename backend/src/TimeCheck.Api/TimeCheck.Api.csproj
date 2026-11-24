@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- Dev secrets (Auth:ServiceRoleKey) live in user-secrets, never in appsettings. See README. -->
+    <UserSecretsId>timecheck-api-dev</UserSecretsId>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\TimeCheck.Infrastructure\TimeCheck.Infrastructure.csproj" />
   </ItemGroup>

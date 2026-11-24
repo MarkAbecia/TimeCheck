@@ -6,7 +6,30 @@ namespace TimeCheck.Application.Abstractions;
 
 /// <summary>The signed-in user, resolved from app_users (never from token claims). See ADR 0002.</summary>
 public sealed record CurrentUserInfo(
-    Guid AppUserId, Guid ChurchId, UserRole Role, bool IsActive, IReadOnlyList<Guid> LedGroupIds, Guid? GroupId);
+    Guid AppUserId, Guid ChurchId, UserRole Role, bool IsActive, IReadOnlyList<Guid> LedGroupIds, Guid? GroupId,
+    bool MustChangePassword = false, string? PrivacyConsentVersion = null);
+
+/// <summary>Account rules set by configuration (Api layer).</summary>
+public interface IAccountPolicy
+{
+    /// <summary>The privacy notice version users must accept before using the app (§8.4).</summary>
+    string PrivacyConsentVersion { get; }
+    bool RequireAdminMfa { get; }
+}
+
+/// <summary>Supabase Auth admin operations; the service role key lives only in the backend (§8.1).</summary>
+public interface IAuthAdmin
+{
+    /// <summary>Throws <see cref="FluentValidation.ValidationException"/> when Supabase rejects the password.</summary>
+    Task SetPasswordAsync(Guid authUserId, string newPassword, CancellationToken ct);
+}
+
+public static class Onboarding
+{
+    /// <summary>A user may use the app only after the forced password change and the current privacy consent (§6.1, §8.4).</summary>
+    public static bool IsComplete(this CurrentUserInfo u, IAccountPolicy policy) =>
+        !u.MustChangePassword && u.PrivacyConsentVersion == policy.PrivacyConsentVersion;
+}
 
 public interface ICurrentUser
 {

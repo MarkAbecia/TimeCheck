@@ -4,7 +4,7 @@ import { CalendarCheck } from "lucide-react";
 import { EventPass, type Pass } from "@/components/event-pass";
 import { EmptyState } from "@/components/empty-state";
 import { demoToday } from "@/lib/demo-today";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Today" };
 
@@ -23,7 +23,7 @@ function PassList({ passes }: { passes: Pass[] }) {
 const sectionHeading = "mx-1 mb-2.5 font-display text-[0.9375rem] font-bold tracking-[0.14em] text-muted-foreground uppercase";
 
 export default async function TodayPage() {
-  const [t, format, session] = await Promise.all([getTranslations("today"), getFormatter(), getSession()]);
+  const [t, format, session] = await Promise.all([getTranslations("today"), getFormatter(), requireSession()]);
   const { today, upcoming } = demoToday(session.role);
   const now = new Date();
   // "Tue 24 Nov": day before month, as Filipinos write it.

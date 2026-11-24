@@ -30,6 +30,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public static readonly Guid MemberAuth = Guid.Parse("30000000-0000-0000-0000-000000000004");
     public static readonly Guid Leader2Auth = Guid.Parse("30000000-0000-0000-0000-000000000005");
     public static readonly Guid OtherChurchAuth = Guid.Parse("30000000-0000-0000-0000-000000000099");
+    /// <summary>A fresh account: forced password change and privacy consent still owed.</summary>
+    public static readonly Guid NewcomerAuth = Guid.Parse("30000000-0000-0000-0000-000000000077");
+
+    public FakeAuthAdmin AuthAdmin { get; } = new();
     public static readonly Guid LeaderAppId = Guid.Parse("10000000-0000-0000-0000-000000000003");
     public static readonly Guid Group1 = Guid.Parse("20000000-0000-0000-0000-000000000001");
     public static readonly Guid Group2 = Guid.Parse("20000000-0000-0000-0000-000000000002");
@@ -70,6 +74,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Redis:Configuration", _redis.GetConnectionString());
         builder.UseSetting("Auth:RequireAdminMfa", "true");
 
+        builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IAuthAdmin>(AuthAdmin));
         builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
         {
             var config = new OpenIdConnectConfiguration { Issuer = Issuer };
@@ -144,10 +149,30 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         declare cid uuid := public.create_church('Other Church');
         begin
           insert into auth.users (id, email) values ('30000000-0000-0000-0000-000000000099', 'other@example.test');
+          insert into public.app_users (id, church_id, auth_user_id, role, first_name, last_name, gender, birthdate_enc, name_birthdate_bidx, email,
+                                       must_change_password, privacy_consent_version, privacy_consent_at)
+          values ('10000000-0000-0000-0000-000000000099', cid, '30000000-0000-0000-0000-000000000099', 'ADMIN', 'Other', 'Admin', 'MALE', 'v1:unused', 'x', 'other@example.test',
+                  false, '2026-11', now());
+
+          insert into auth.users (id, email) values ('30000000-0000-0000-0000-000000000077', 'newcomer@timecheck.test');
           insert into public.app_users (id, church_id, auth_user_id, role, first_name, last_name, gender, birthdate_enc, name_birthdate_bidx, email)
-          values ('10000000-0000-0000-0000-000000000099', cid, '30000000-0000-0000-0000-000000000099', 'ADMIN', 'Other', 'Admin', 'MALE', 'v1:unused', 'x', 'other@example.test');
+          select '10000000-0000-0000-0000-000000000077', church_id, '30000000-0000-0000-0000-000000000077', 'MEMBER', 'New', 'Comer', 'FEMALE',
+                 birthdate_enc, 'newcomer-bidx', 'newcomer@timecheck.test'
+          from public.app_users where id = '10000000-0000-0000-0000-000000000004';
         end $$;
         """;
+}
+
+/// <summary>Stands in for the Supabase admin API; records calls, never sees a real key.</summary>
+public sealed class FakeAuthAdmin : TimeCheck.Application.Abstractions.IAuthAdmin
+{
+    public List<Guid> PasswordSetFor { get; } = [];
+
+    public Task SetPasswordAsync(Guid authUserId, string newPassword, CancellationToken ct)
+    {
+        lock (PasswordSetFor) PasswordSetFor.Add(authUserId);
+        return Task.CompletedTask;
+    }
 }
 
 [CollectionDefinition(Name)]

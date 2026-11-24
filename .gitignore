@@ -25,3 +25,4 @@ database/supabase/.temp/
 .DS_Store
 Thumbs.db
 .idea/
+database/supabase/signing_keys.json

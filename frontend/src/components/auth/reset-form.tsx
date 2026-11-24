@@ -1,46 +1,37 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleCheck } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { resetPassword, type AuthError } from "@/lib/auth-client";
+import { toast } from "sonner";
+import { setPassword, type AuthError } from "@/lib/auth-client";
 import { resetSchema, type ResetInput } from "@/lib/validation/auth";
-import { buttonVariants } from "@/components/ui/button";
 import { FormAlert, PasswordField, SubmitButton } from "./fields";
 
+/** New password after a reset link, or the forced change on first sign-in. Either way the user is signed in. */
 export function ResetForm() {
   const t = useTranslations("auth");
-  const [done, setDone] = useState(false);
+  const router = useRouter();
   const [error, setError] = useState<AuthError | null>(null);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<ResetInput>({ resolver: zodResolver(resetSchema), mode: "onTouched" });
-
-  if (done) {
-    return (
-      <div role="status" className="grid gap-4">
-        <CircleCheck className="size-8 text-success" aria-hidden />
-        <div>
-          <h2 className="font-display text-2xl font-bold uppercase">{t("resetDoneTitle")}</h2>
-          <p className="mt-1 text-muted-foreground">{t("resetDoneBody")}</p>
-        </div>
-        <Link href="/login" className={buttonVariants({ size: "lg", className: "w-full" })}>
-          {t("backToSignIn")}
-        </Link>
-      </div>
-    );
-  }
+  } = useForm<ResetInput>({
+    resolver: zodResolver(resetSchema),
+    mode: "onTouched",
+  });
 
   const onSubmit = handleSubmit(async ({ password }) => {
     setError(null);
-    const result = await resetPassword(password);
-    if (result.ok) setDone(true);
-    else setError(result.error);
+    const result = await setPassword(password);
+    if (!result.ok) return setError(result.error);
+    toast.success(t("resetDoneTitle"), { description: t("resetDoneBody") });
+    // The app layout sends the user on to MFA or consent if either is still owed.
+    router.replace("/");
   });
 
   return (
