@@ -1,7 +1,9 @@
 using TimeCheck.Api.Auth;
+using TimeCheck.Api.Infrastructure;
 using TimeCheck.Application.Abstractions;
 using TimeCheck.Application.Common;
 using TimeCheck.Application.Features.Admin;
+using TimeCheck.Application.Features.Devotions;
 using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
@@ -88,6 +90,38 @@ public static class Endpoints
         {
             await d.Send(body with { EventId = id }, ct);
             return await d.Send(new GetEvent(id, groupId), ct);
+        }).RequireAuthorization(Policies.Leader);
+
+        // Devotions (§6.3). Uploading is PUT on the slot: a retry or a second upload edits the same devotion (§9 idempotency).
+        v1.MapGet("/me/devotions", (Dispatcher d, CancellationToken ct) => d.Send(new GetMyDevotions(), ct)).WithTags("Devotions");
+        v1.MapPut("/me/devotions/{date}/{slot}", async (DateOnly date, DevotionSlot slot, HttpRequest req, Dispatcher d, CancellationToken ct) =>
+            {
+                // multipart/form-data: text, keepImage, and an optional image file. Read by hand so the size cap applies first.
+                var form = await req.ReadFormAsync(ct);
+                byte[]? image = null;
+                if (form.Files.GetFile("image") is { Length: > 0 } file)
+                {
+                    if (file.Length > SubmitDevotion.MaxImageBytes) return Results.Problem(statusCode: 413, title: "Images can be up to 10 MB.");
+                    using var ms = new MemoryStream((int)file.Length);
+                    await file.CopyToAsync(ms, ct);
+                    image = ms.ToArray();
+                }
+                var keep = bool.TryParse(form["keepImage"], out var k) && k;
+                return Results.Ok(await d.Send(new SubmitDevotion(date, slot, form["text"], image, keep), ct));
+            })
+            .WithTags("Devotions")
+            .WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(SubmitDevotion.MaxImageBytes + 64 * 1024))
+            .WithRateLimit(RateLimits.Uploads);
+        var devotions = v1.MapGroup("/devotions").WithTags("Devotions");
+        devotions.MapGet("", (DateOnly? date, Guid? groupId, bool? likelyAi, Dispatcher d, CancellationToken ct) =>
+                d.Send(new ListGroupDevotions(date, groupId, likelyAi ?? false), ct))
+            .RequireAuthorization(Policies.Leader);
+        // Owner, their leader, or an admin; anyone else gets 404. Includes a 5-minute signed image URL.
+        devotions.MapGet("/{id:guid}", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new GetDevotion(id), ct));
+        devotions.MapPost("/{id:guid}/review", async (Guid id, ReviewDevotion body, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(body with { Id = id }, ct);
+            return await d.Send(new GetDevotion(id), ct);
         }).RequireAuthorization(Policies.Leader);
 
         var admin = v1.MapGroup("/admin").WithTags("Admin");

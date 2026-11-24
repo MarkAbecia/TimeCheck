@@ -2,6 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { gotrue, type AuthSession } from "@/lib/server/gotrue";
 import { ACCESS_COOKIE, REFRESH_COOKIE, clearSession, isStale, readClaims, writeSession } from "@/lib/server/tokens";
 
+const storageOrigin = () => {
+  try {
+    return ` ${new URL(process.env.SUPABASE_URL ?? "").origin}`;
+  } catch {
+    return "";
+  }
+};
+
 const SONNER_CSS = "'sha256-StEaX+se6YS7pqjzrzMIA0KaX9zF/8zAhvQXZAe5epY='";
 
 /** Pages reachable without a session. Everything else, (app) routes included, redirects to /login (§6.1 AC). */
@@ -60,7 +68,8 @@ function withSecurityHeaders(request: NextRequest) {
     `style-src 'self' 'nonce-${nonce}' ${SONNER_CSS} 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='`,
     // React renders style="" attributes (Base UI positioning, sonner); attributes can't carry a nonce. See ADR 0005.
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' blob: data:",
+    // Devotion photos come from Supabase Storage as 5-minute signed URLs (§6.3); blob: is the preview before upload.
+    `img-src 'self' blob: data:${storageOrigin()}`,
     "font-src 'self'",
     `connect-src 'self'${isDev ? " ws:" : ""}`,
     "object-src 'none'",

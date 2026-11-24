@@ -34,6 +34,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public static readonly Guid NewcomerAuth = Guid.Parse("30000000-0000-0000-0000-000000000077");
 
     public FakeAuthAdmin AuthAdmin { get; }
+    public FakeStorage Storage { get; } = new();
 
     public ApiFactory() => AuthAdmin = new FakeAuthAdmin(() => _pg.GetConnectionString());
     public static readonly Guid LeaderAppId = Guid.Parse("10000000-0000-0000-0000-000000000003");
@@ -77,6 +78,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Auth:RequireAdminMfa", "true");
 
         builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IAuthAdmin>(AuthAdmin));
+        builder.ConfigureServices(services => services.AddSingleton<TimeCheck.Application.Abstractions.IFileStorage>(Storage));
         builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
         {
             var config = new OpenIdConnectConfiguration { Issuer = Issuer };
@@ -211,4 +213,27 @@ public sealed class FakeAuthAdmin(Func<string> connectionString) : TimeCheck.App
 public sealed class ApiTestGroup : ICollectionFixture<ApiFactory>
 {
     public const string Name = "api";
+}
+
+/// <summary>In-memory Supabase Storage: the tests check what was stored, never a real bucket.</summary>
+public sealed class FakeStorage : TimeCheck.Application.Abstractions.IFileStorage
+{
+    public System.Collections.Concurrent.ConcurrentDictionary<string, (byte[] Bytes, string ContentType)> Objects { get; } = new();
+
+    public Task UploadAsync(string bucket, string path, byte[] content, string contentType, CancellationToken ct)
+    {
+        Objects[$"{bucket}/{path}"] = (content, contentType);
+        return Task.CompletedTask;
+    }
+
+    public Task<byte[]> DownloadAsync(string bucket, string path, CancellationToken ct) => Task.FromResult(Objects[$"{bucket}/{path}"].Bytes);
+
+    public Task<string> SignedUrlAsync(string bucket, string path, TimeSpan ttl, CancellationToken ct) =>
+        Task.FromResult($"https://storage.test/sign/{bucket}/{path}?ttl={(int)ttl.TotalSeconds}");
+
+    public Task DeleteAsync(string bucket, string path, CancellationToken ct)
+    {
+        Objects.TryRemove($"{bucket}/{path}", out _);
+        return Task.CompletedTask;
+    }
 }

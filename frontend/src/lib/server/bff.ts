@@ -57,7 +57,7 @@ export function signedOut(status = 401) {
 export function callApi(path: string, accessToken: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${accessToken}`);
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   return fetch(`${env().API_URL}${path}`, {
     ...init,
     headers,

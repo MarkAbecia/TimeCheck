@@ -125,6 +125,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UnitOfWork>();
         services.AddScoped<Dispatcher>();
         services.AddScoped<Features.Events.EventGenerator>();
+        services.AddScoped<Features.Devotions.DevotionChecker>();
+        services.AddScoped<Features.Devotions.DevotionReminders>();
         return services;
     }
 }

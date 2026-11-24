@@ -216,13 +216,47 @@ Checked:
   - Found and fixed: the agenda overflowed a phone, because grid columns sized to their content (now `grid-cols-1`). The clash warning landed under the tab bar (it now scrolls into view).
   - The test marks and the test event were removed afterwards.
 
+## Phase 7 — Devotions & AI detection (done, 2026-11-24)
+
+Defaults taken from the open questions (§15):
+- No detection provider is chosen yet (Q6); see ADR 0006. Production runs with `Ai:Provider=none`, so devotions are saved and shown as "Not checked". Development uses a fake detector (`Ai:Provider=fake`, allowed only with `Ai:FakeAllowed`) that scores from the content hash.
+- Slot windows: Day 00:00–23:59, Night 18:00–05:00 the next day, both inclusive of the closing minute (church settings `devotions.*`).
+- Bands: under 40 likely human, over 75 likely AI, uncertain between (church settings). Members don't see their own score unless `membersSeeOwnScore` is on.
+
+Built:
+- **Submit:** `PUT /me/devotions/{date}/{slot}` takes multipart text (up to 5000 characters) and/or a photo (10 MB max, JPEG, PNG or WebP by magic bytes).
+  - SkiaSharp corrects the orientation, caps the long side at 2048 px and re-encodes to JPEG 85, which strips EXIF, GPS and anything appended.
+  - Photos go to the private `devotions` bucket in Supabase Storage at `{church}/{user}/{sha256}.jpg`. A failed save deletes the upload; a replaced photo is deleted after commit.
+  - Submitting again edits the devotion, never duplicates it. A closed slot is 422 `devotion.closed`. The audit records only whether there was text and a photo.
+  - The BFF forwards only this one multipart route, checks its size, and gives it 30 s.
+- **Detection (`DevotionChecker`, Worker, every minute):** batches of 50 pending devotions. A content hash already scored in the church reuses its score. Church `ai.enabled` off or no provider gives SKIPPED. After an hour a devotion is FAILED, and 3 provider errors in a row stop the batch. The content hash is a concurrency token, so a score is never written onto edited content.
+- **Reminders (`DevotionReminders`, Worker, every 15 minutes):** after the church's reminder time, while the slot is open and nothing is submitted, one `devotion.reminder.day` / `.night` outbox row per person per slot per day.
+- **Review:** leaders see their groups' members for a day (`GET /devotions`, with a likely-AI filter), open one (`GET /devotions/{id}`, a 5-minute signed photo URL) and mark it reviewed with a private note. Admins see everyone. Anything out of reach is 404.
+- **Screens:**
+  - `/devotions`: the streak, a card per open slot (type, take a photo or choose one, send: three taps), and the last 30 days. The photo is shrunk to JPEG on the phone before upload.
+  - `/devotions/group`: day navigation, the likely-AI filter, group chips for admins, and the fairness disclaimer wherever scores are shown.
+  - `/devotions/[id]`: the text, the photo, the band with text and photo %, and the review form.
+- **Also fixed:** role checks written as `me.Role >= UserRole.ADMIN` were true for everyone, because the enum starts at SUPER_ADMIN. They now use `IsAdmin()`. The integration tests caught it before it shipped.
+
+Checked:
+- **Automated:** backend 86/86 (8 new `DevotionsTests`: edit vs duplicate, closed slot, bad files, re-encoding strips GPS, keep and delete photo, Worker scoring, hash cache, leader list and review, access across groups and churches, streak, reminders). Frontend typecheck, lint, 49 unit tests and the production build pass.
+- **Playwright:** 109 passing. New flow: a member sends a devotion with a photo, the leader finds it, opens it, sees the photo, and reviews it with a note; the member then removes the photo. `/devotions` and `/devotions/group` were added to the axe run.
+- **Live as the seeded leader (375 px):** text plus photo went through the BFF into real Supabase Storage (a 24 KB JPEG), the Worker scored it within a minute, and the signed photo loads under the CSP. Found and fixed: "closes 12 AM" (now the last open minute), the recent list overflowing a phone, wrapped slot labels in the group view, and the form still saying "Photo ready to send" after an edit. The test devotion, its photo and the reminder rows were removed afterwards.
+
 ## Known gaps / next
+- Phase 7:
+  - No real detection provider (Q6, ADR 0006), and no OCR, so a photo is scored as an image, not as the text on it.
+  - Reminders are outbox rows only; delivery is Phase 9.
+  - Devotions don't write DEVOTION_DAY/NIGHT attendance rows; reports can count them from `devotions`.
+  - No settings screen for windows, reminder times or thresholds yet.
+  - Mirrored EXIF orientations aren't handled.
+  - The group list is capped at 500 members.
+  - Hangfire runs could overlap if a batch takes over a minute; the concurrency token keeps the data right, but work may repeat.
 - Phase 6:
   - The calendar is an agenda list; there is no month grid yet.
   - Notification delivery is Phase 9; only the outbox rows exist.
   - The generator doesn't extend Cell Meeting series past their weeks.
   - The Week of Fire weekday comes from `event_types`, not church settings.
-  - The devotion streak is Phase 7.
   - The offline queue isn't backed by a service worker (it sends when the app is next open).
   - The OpenAPI TypeScript client hasn't been regenerated; the types are hand-written in `lib/types.ts`.
 - E2e doesn't cover admin screens (groups, role and move), because admins need TOTP codes. That needs a TOTP helper and a known seeded factor. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).

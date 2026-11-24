@@ -92,4 +92,39 @@ public interface IAppDbContext
     DbSet<AuditLog> AuditLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>Forgets tracked changes after a failed save, so a long-running job can carry on with the next item.</summary>
+    void DiscardChanges();
+}
+
+/// <summary>Private object storage (Supabase Storage). Clients only ever get short-lived signed URLs (§6.3, §8.3).</summary>
+public interface IFileStorage
+{
+    Task UploadAsync(string bucket, string path, byte[] content, string contentType, CancellationToken ct);
+    Task<byte[]> DownloadAsync(string bucket, string path, CancellationToken ct);
+    Task<string> SignedUrlAsync(string bucket, string path, TimeSpan ttl, CancellationToken ct);
+    Task DeleteAsync(string bucket, string path, CancellationToken ct);
+}
+
+public sealed record CleanImage(byte[] Bytes, string ContentType);
+
+/// <summary>
+/// Checks an upload by its magic bytes and re-encodes it, which drops EXIF/GPS and anything smuggled in the file (§8.3).
+/// Throws <see cref="Domain.Common.DomainException"/> "upload.image_invalid" for anything that isn't a JPEG, PNG or WebP.
+/// </summary>
+public interface IImageSanitizer
+{
+    CleanImage Sanitize(byte[] input);
+}
+
+/// <summary>0–100: how likely the content is AI-generated, and who said so.</summary>
+public sealed record AiScore(decimal Score, string Provider, string Model);
+
+/// <summary>An AI-content detection provider (§6.3, ADR 0006). Returns null for content it doesn't handle.</summary>
+public interface IAiContentDetector
+{
+    /// <summary>False when detection is switched off (no provider configured): devotions are marked SKIPPED.</summary>
+    bool Enabled { get; }
+    Task<AiScore?> ScoreTextAsync(string text, CancellationToken ct);
+    Task<AiScore?> ScoreImageAsync(byte[] image, string contentType, CancellationToken ct);
 }

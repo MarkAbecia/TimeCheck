@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { E2E_DOMAIN } from "./helpers";
 
-// Removes the people the specs registered (only @e2e.timecheck.test) and the events they scheduled ("E2E " titles), with everything that points at them.
+// Removes the people the specs registered (only @e2e.timecheck.test), the events they scheduled ("E2E " titles) and devotions they sent ("E2E " text, photo already removed), with everything that points at them.
 // shortcut: goes through `docker exec` into the local Supabase db container; use a direct connection when e2e runs in CI.
 const SQL = `
 begin;
@@ -21,6 +21,8 @@ delete from public.event_audiences where event_id in (select id from e2e_events)
 delete from public.notifications where payload->>'title' like 'E2E %';
 delete from public.audit_logs where entity_type = 'event' and entity_id in (select id::text from e2e_events);
 delete from public.events where id in (select id from e2e_events);
+delete from public.audit_logs where entity_type = 'devotion' and entity_id in (select id::text from public.devotions where text_content like 'E2E %');
+delete from public.devotions where text_content like 'E2E %' and image_path is null;
 commit;`;
 
 export default function teardown() {

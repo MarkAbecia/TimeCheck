@@ -16,8 +16,8 @@ export async function send<T = unknown>(method: "POST" | "PATCH" | "PUT", path: 
   try {
     const res = await fetch(`/api/bff${path}`, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body ?? {}),
+      // FormData (a devotion photo) sets its own multipart boundary.
+      ...(body instanceof FormData ? { body } : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) }),
       credentials: "same-origin",
     });
     if (res.status === 401) {

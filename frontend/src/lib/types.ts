@@ -97,3 +97,37 @@ export type Today = { date: string; today: EventSummary[]; upcoming: EventSummar
 
 export type HistoryItem = { eventId: string; typeCode: string; typeName: string; title: string; startsAt: string; occursOn: string; status: AttendanceStatus };
 export type MyAttendance = { from: string; to: string; items: HistoryItem[]; attended: number; counted: number; morningPrayerStreak: number };
+
+export type DevotionSlot = "DAY" | "NIGHT";
+export type AiStatus = "PENDING" | "DONE" | "FAILED" | "SKIPPED";
+export type AiBand = "LIKELY_HUMAN" | "UNCERTAIN" | "LIKELY_AI";
+export type Devotion = {
+  id: string;
+  date: string;
+  slot: DevotionSlot;
+  text: string | null;
+  hasImage: boolean;
+  submittedAt: string;
+  aiStatus: AiStatus;
+  aiTextScore: number | null;
+  aiImageScore: number | null;
+  band: AiBand | null;
+  reviewed: boolean;
+};
+export type DevotionSlotState = { slot: DevotionSlot; date: string; closes: string; devotion: Devotion | null };
+export type MyDevotions = { today: string; open: DevotionSlotState[]; recent: Devotion[]; streak: number; showsScores: boolean };
+export type DevotionDetail = {
+  devotion: Devotion;
+  userId: string;
+  memberName: string;
+  groupName: string | null;
+  imageUrl: string | null;
+  canReview: boolean;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  showsScores: boolean;
+};
+export type DevotionBrief = { id: string; aiStatus: AiStatus; score: number | null; band: AiBand | null; reviewed: boolean; hasImage: boolean };
+export type MemberDevotions = { userId: string; displayName: string; groupName: string | null; day: DevotionBrief | null; night: DevotionBrief | null };
+export type GroupDevotions = { date: string; members: MemberDevotions[]; submitted: number; expected: number };

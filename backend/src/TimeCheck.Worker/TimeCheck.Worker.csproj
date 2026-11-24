@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <UserSecretsId>dotnet-TimeCheck.Worker-39bf5a8f-777b-45f9-b39e-9cf0cb819674</UserSecretsId>
+    <UserSecretsId>timecheck-api-dev</UserSecretsId> <!-- shares the API's dev secrets (Auth:ServiceRoleKey for Storage) -->
   </PropertyGroup>
 
   <ItemGroup>

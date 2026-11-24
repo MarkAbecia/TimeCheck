@@ -7,6 +7,7 @@ using StackExchange.Redis;
 using TimeCheck.Application.Abstractions;
 using TimeCheck.Domain.Enums;
 using TimeCheck.Infrastructure.Caching;
+using TimeCheck.Infrastructure.Files;
 using TimeCheck.Infrastructure.Persistence;
 using TimeCheck.Infrastructure.Security;
 
@@ -52,6 +53,20 @@ public static class DependencyInjection
             // Read lazily so the API still starts (and tests run) without the key; calls then fail with 401.
             http.DefaultRequestHeaders.Add("apikey", config["Auth:ServiceRoleKey"] ?? "");
             http.Timeout = TimeSpan.FromSeconds(10);
+        });
+        services.AddHttpClient<IFileStorage, SupabaseStorage>(http =>
+        {
+            http.BaseAddress = new Uri($"{(config["Auth:SupabaseUrl"] ?? "http://localhost").TrimEnd('/')}/");
+            http.DefaultRequestHeaders.Add("apikey", config["Auth:ServiceRoleKey"] ?? "");
+            http.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddSingleton<IImageSanitizer, SkiaImageSanitizer>();
+        services.AddSingleton<IAiContentDetector>(_ => (config["Ai:Provider"] ?? "none") switch
+        {
+            "none" => new DisabledAiContentDetector(),
+            // The fake scores mean nothing; it must never reach real members.
+            "fake" when config.GetValue<bool>("Ai:FakeAllowed") => new FakeAiContentDetector(),
+            var p => throw new InvalidOperationException($"Ai:Provider '{p}' isn't available here. Use \"none\" until a provider is chosen (ADR 0006)."),
         });
         return services;
     }

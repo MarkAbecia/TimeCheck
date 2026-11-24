@@ -18,7 +18,7 @@ public sealed class EncryptionOptions
 }
 
 /// <summary>
-/// AES-256-GCM, format "v{keyId}:{base64(nonce12 | ciphertext | tag16)}" (ADR 0003).
+/// AES-256-GCM, format "v{keyId}:{base64(nonce12 | ciphertext | tag16)}" (ADR 0006).
 /// The key id travels with the ciphertext so keys can be rotated without a big-bang re-encrypt.
 /// </summary>
 public sealed class FieldEncryptor

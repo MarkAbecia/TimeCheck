@@ -156,3 +156,42 @@ public class DomainRulesTests
         again.Should().Throw<DomainException>();
     }
 }
+
+public class DevotionRulesTests
+{
+    private static readonly DateOnly Tue = new(2026, 11, 24);
+    private static DateTime At(DateOnly d, int h, int m = 0) => d.ToDateTime(new TimeOnly(h, m));
+
+    [Fact]
+    public void Day_is_open_all_day_and_night_runs_past_midnight()
+    {
+        var w = DevotionWindows.Default;
+        w.OpenAt(At(Tue, 10)).Should().Equal((DevotionSlot.DAY, Tue));
+        w.OpenAt(At(Tue, 19)).Should().Equal((DevotionSlot.DAY, Tue), (DevotionSlot.NIGHT, Tue));
+        w.OpenAt(At(Tue, 23, 59)).Should().Contain((DevotionSlot.DAY, Tue));
+        // Just after midnight: a new Day, and Monday night is still open until 05:00 inclusive.
+        w.OpenAt(At(Tue, 0, 30)).Should().Equal((DevotionSlot.NIGHT, Tue.AddDays(-1)), (DevotionSlot.DAY, Tue));
+        w.IsOpen(DevotionSlot.NIGHT, Tue.AddDays(-1), At(Tue, 5, 0)).Should().BeTrue();
+        w.IsOpen(DevotionSlot.NIGHT, Tue.AddDays(-1), At(Tue, 5, 1)).Should().BeFalse();
+        w.IsOpen(DevotionSlot.NIGHT, Tue, At(Tue, 17, 59)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_second_upload_edits_the_first_and_rechecks_only_changed_content()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var hash = new string('a', 64);
+        var d = Devotion.Submit(Guid.NewGuid(), Guid.NewGuid(), Tue, DevotionSlot.DAY, "Psalm 23", null, hash, now);
+        d.RecordAiResult(12, null, "dev", "1", now);
+
+        d.Replace("Psalm 23", null, hash, now);
+        d.AiStatus.Should().Be(AiStatus.DONE, "the same content keeps its score");
+
+        d.Replace("Psalm 23, verse 4", null, new string('b', 64), now);
+        d.AiStatus.Should().Be(AiStatus.PENDING);
+        d.AiTextScore.Should().BeNull();
+
+        var empty = () => d.Replace("  ", null, hash, now);
+        empty.Should().Throw<DomainException>();
+    }
+}

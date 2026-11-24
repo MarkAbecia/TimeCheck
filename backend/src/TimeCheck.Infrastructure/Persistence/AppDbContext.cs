@@ -36,6 +36,7 @@ public sealed class AppDbContext(
     public DbSet<EventAudience> EventAudiences => Set<EventAudience>();
     public DbSet<Attendance> Attendance => Set<Attendance>();
     public DbSet<Devotion> Devotions => Set<Devotion>();
+    public void DiscardChanges() => ChangeTracker.Clear();
     public DbSet<Invite> Invites => Set<Invite>();
     public DbSet<RoleChange> RoleChanges => Set<RoleChange>();
     public DbSet<MemberStatusChange> MemberStatusChanges => Set<MemberStatusChange>();
@@ -100,6 +101,8 @@ public sealed class AppDbContext(
             e.ToTable("devotions");
             e.Property(x => x.AiTextScore).HasPrecision(5, 2);
             e.Property(x => x.AiImageScore).HasPrecision(5, 2);
+            // The AI job saves a score only if the content it scored is still the content stored.
+            e.Property(x => x.ContentHash).IsConcurrencyToken();
             Tenant(e);
         });
         b.Entity<Invite>(e =>

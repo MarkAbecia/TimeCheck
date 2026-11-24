@@ -74,3 +74,41 @@ public sealed class Devotion : BaseEntity, IChurchScoped
         ReviewNote = note;
     }
 }
+
+/// <summary>
+/// When each slot accepts uploads, in church wall time (§6.3, §15 Q4). A slot is open from its opening minute through its
+/// closing minute; a closing time at or before the opening time means the next day (Night: 18:00 to 05:00).
+/// </summary>
+public sealed class DevotionWindows(TimeOnly dayOpens, TimeOnly dayCloses, TimeOnly nightOpens, TimeOnly nightCloses)
+{
+    public TimeOnly DayOpens { get; } = dayOpens;
+    public TimeOnly DayCloses { get; } = dayCloses;
+    public TimeOnly NightOpens { get; } = nightOpens;
+    public TimeOnly NightCloses { get; } = nightCloses;
+
+    public static readonly DevotionWindows Default = new(new(0, 0), new(23, 59), new(18, 0), new(5, 0));
+
+    /// <summary>[Opens, Closes) for the slot that belongs to <paramref name="date"/>.</summary>
+    public (DateTime Opens, DateTime Closes) Window(DevotionSlot slot, DateOnly date)
+    {
+        var (opens, closes) = slot == DevotionSlot.DAY ? (DayOpens, DayCloses) : (NightOpens, NightCloses);
+        var start = date.ToDateTime(opens);
+        var end = date.AddDays(closes <= opens ? 1 : 0).ToDateTime(closes).AddMinutes(1);
+        return (start, end);
+    }
+
+    public bool IsOpen(DevotionSlot slot, DateOnly date, DateTime localNow)
+    {
+        var (opens, closes) = Window(slot, date);
+        return localNow >= opens && localNow < closes;
+    }
+
+    /// <summary>The slots open right now: today's, plus last night's until it closes in the morning.</summary>
+    public IEnumerable<(DevotionSlot Slot, DateOnly Date)> OpenAt(DateTime localNow)
+    {
+        var today = DateOnly.FromDateTime(localNow);
+        foreach (var date in new[] { today.AddDays(-1), today })
+            foreach (var slot in new[] { DevotionSlot.DAY, DevotionSlot.NIGHT })
+                if (IsOpen(slot, date, localNow)) yield return (slot, date);
+    }
+}
