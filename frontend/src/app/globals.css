@@ -234,3 +234,10 @@
     }
   }
 }
+
+/* Sonner's light rich colours fall just under 4.5:1; its text takes the app's status tokens instead (the dark ones pass). */
+html [data-sonner-toaster][data-sonner-theme="light"] {
+  --success-text: var(--success);
+  --error-text: var(--destructive);
+  --warning-text: var(--warning);
+}

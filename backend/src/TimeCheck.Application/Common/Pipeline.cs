@@ -56,7 +56,8 @@ public sealed class Dispatcher(
     IServiceProvider services, IAppDbContext db, ICurrentUser currentUser, IRequestContext requestContext,
     IBlindIndexer blindIndexer, AuditScope auditScope, UnitOfWork unitOfWork)
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // Enums as their names, so audit rows read "PRESENT" rather than 0.
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
 
     public async Task<TResult> Send<TResult>(IRequest<TResult> request, CancellationToken ct = default)
     {
@@ -123,6 +124,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<AuditScope>();
         services.AddScoped<UnitOfWork>();
         services.AddScoped<Dispatcher>();
+        services.AddScoped<Features.Events.EventGenerator>();
         return services;
     }
 }

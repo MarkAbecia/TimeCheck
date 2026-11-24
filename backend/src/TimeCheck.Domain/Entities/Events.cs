@@ -33,6 +33,12 @@ public sealed class EventType : BaseEntity, IChurchScoped
             Weekday = weekday,
         };
 
+    /// <summary>Created by the recurring job rather than by people (Morning Prayer, Week of Fire, Sunday Celebration; devotions are implicit).</summary>
+    public bool IsGeneratedCadence => Cadence is EventCadence.DAILY or EventCadence.DAILY_MON_SAT || (Cadence == EventCadence.WEEKLY && Weekday is not null);
+
+    /// <summary>Devotions are attendance by upload (Phase 7), never events.</summary>
+    public bool IsImplicit => DefaultScope == EventScope.INDIVIDUAL;
+
     /// <summary>Should a generated occurrence exist on this local date? (§5.1, §5.2)</summary>
     public bool OccursOn(DateOnly localDate) => Cadence switch
     {
@@ -91,6 +97,28 @@ public sealed class Event : BaseEntity, IChurchScoped, IAuditedEntity
     }
 
     public void Cancel(DateTimeOffset at, Guid actorId) { CancelledAt ??= at; UpdatedBy = actorId; }
+
+    /// <summary>Type and group stay fixed; a new time moves the local date too (and Morning Prayer still can't land on Sunday).</summary>
+    public void Update(EventType type, string title, string? description, DateTimeOffset startsAt, DateTimeOffset endsAt,
+        string? location, string? onlineLink, TimeZoneInfo churchTz, Guid actorId)
+    {
+        if (CancelledAt is not null) throw new DomainException("event.cancelled", "A cancelled event can't be changed.");
+        if (endsAt <= startsAt) throw new DomainException("event.time", "An event must end after it starts.");
+        var occursOn = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(startsAt, churchTz).DateTime);
+        if (type.Code == EventType.MorningPrayer && occursOn.DayOfWeek == DayOfWeek.Sunday)
+            throw new DomainException("event.sunday", "Morning Prayer is never held on Sunday.");
+        Title = title.Trim();
+        Description = description;
+        StartsAt = startsAt.ToUniversalTime();
+        EndsAt = endsAt.ToUniversalTime();
+        OccursOn = occursOn;
+        Location = location;
+        OnlineLink = onlineLink;
+        UpdatedBy = actorId;
+    }
+
+    /// <summary>Weekly occurrences of one Cell Meeting share a series id (§6.6 recurrence).</summary>
+    public void JoinSeries(Guid seriesId, string rule) { SeriesId = seriesId; RecurrenceRule = rule; }
 }
 
 public sealed class EventAudience : BaseEntity

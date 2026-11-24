@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { E2E_DOMAIN } from "./helpers";
 
-// Removes the people the specs registered (only @e2e.timecheck.test), with everything that points at them.
+// Removes the people the specs registered (only @e2e.timecheck.test) and the events they scheduled ("E2E " titles), with everything that points at them.
 // shortcut: goes through `docker exec` into the local Supabase db container; use a direct connection when e2e runs in CI.
 const SQL = `
 begin;
@@ -11,9 +11,16 @@ delete from public.group_memberships where user_id in (select id from gone);
 delete from public.member_status_changes where user_id in (select id from gone);
 delete from public.role_changes where user_id in (select id from gone);
 delete from public.notifications where user_id in (select id from gone);
+delete from public.attendance where user_id in (select id from gone);
 delete from public.audit_logs where actor_id in (select id from gone) or entity_id in (select id::text from gone);
 delete from public.app_users where id in (select id from gone);
 delete from auth.users where id in (select auth_user_id from gone) or email like '%@${E2E_DOMAIN}';
+create temp table e2e_events as select id from public.events where title like 'E2E %';
+delete from public.attendance where event_id in (select id from e2e_events);
+delete from public.event_audiences where event_id in (select id from e2e_events);
+delete from public.notifications where payload->>'title' like 'E2E %';
+delete from public.audit_logs where entity_type = 'event' and entity_id in (select id::text from e2e_events);
+delete from public.events where id in (select id from e2e_events);
 commit;`;
 
 export default function teardown() {

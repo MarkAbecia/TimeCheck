@@ -125,7 +125,7 @@
   - Two concurrent enrolments clashed on the factor name; names are now unique, and the page starts one enrolment per mount.
   - GoTrue and API calls had no timeout; both now time out after 10 s and release failed responses.
 
-## Phase 5 — Members & groups (code written, not yet verified)
+## Phase 5 — Members & groups (done, 2026-11-24)
 
 Built:
 - **Members (Application/Features/Members):**
@@ -171,7 +171,60 @@ Checked:
   - The Today check-in stub's `aria-label` didn't contain its visible text (WCAG 2.5.3). It is now the visible words plus screen-reader-only "for {event}".
 - **Setup:** one leader sign-in is shared through `storageState`, so the login rate limit isn't hit. Teardown deletes the people registered under `@e2e.timecheck.test`.
 
+## Phase 6 — Events & attendance (done, 2026-11-24)
+
+Defaults taken from the open questions (§15):
+- Leaders mark attendance (Q2).
+- Week of Fire and Cell Celebration are one church-wide event each, with the roster split by group (Q3).
+- Morning Prayer is created per group, Monday to Saturday.
+- Leaders can edit marks for 7 days (church setting `attendanceEditWindowDays`); after that only admins can.
+- Unmarked counts as absent in rates. Excused doesn't count either way.
+
+Built:
+- **Generator (`EventGenerator`, Worker):** a Hangfire recurring job at 00:10 Manila, also triggered on start-up. It creates the next 14 days of events for types with a fixed cadence (per group or church-wide) and skips occurrences that already exist. It runs across churches with explicit `church_id` filters, because there is no HTTP tenant in the Worker.
+- **Scheduling:**
+  - Event types list; events by date range (62 days at most; filter by group, type and category; cancelled on request); `/me/today`.
+  - Create: leaders schedule their own group's leader types, admins schedule anything. Only Cell Meetings repeat (1–26 weeks), each at the same local time. A clash with the group's other events is a 409 `event.conflict` warning the user can confirm.
+  - Edit and cancel notify everyone expected. Edit notifies only when the time changes.
+  - Every write is audited.
+- **Attendance:**
+  - `PUT /events/{id}/attendance` takes bulk marks (up to 1000) and skips unchanged ones, so a retry is harmless. A stale `rowVersion` is a 409 `stale`.
+  - Future events are 422. Marking past the edit window is 403, except for admins. Leaders can mark only their own group.
+  - Audits record the before and after status. Note text is not recorded, only whether there is one.
+- **History:** `/me/attendance` returns the last 30 days (up to 92), the rate, and the Morning Prayer streak.
+- **Screens:**
+  - Today now runs on real data, with a banner for past events still waiting on marks.
+  - `/events`: an agenda by week, a "Needs marks" view, and group and kind filters for admins.
+  - `/events/new` and `/events/[id]/edit`: the schedule form, with the clash step.
+  - `/events/[id]`: details, edit, a two-tap cancel, and your own status. For markers it shows the attendance sheet: "Mark all present", tap the exceptions, save. Admins can pick a group chip on church-wide events.
+  - `/history`.
+- **Offline:** marks saved without a signal (or on a 5xx) are queued in `localStorage` and sent on load or when the connection returns. Clashes are reported and dropped. Signing out clears the queue, so a shared phone never sends the last person's marks.
+- **Also fixed:**
+  - Audit JSON now stores enums as names. Role and status audits were storing numbers.
+  - A unique-index violation now maps to 409 `stale` instead of 500.
+  - Sonner's light toasts used colours under 4.5:1; they now use the app's status tokens.
+
+Checked:
+- **Automated:** backend 76/76 (11 new `EventsTests`). Frontend typecheck, lint, 49 unit tests and the production build pass.
+- **Playwright:** 88 passing.
+  - New flow: a leader schedules a cell meeting, marks it (mark all present, one absent, save), and the marks survive a reload. The member then finds the meeting in their history.
+  - Events, Schedule and History were added to the axe run. axe caught the red "today" date on black in dark mode, which is now a pill.
+  - Teardown also removes events titled "E2E …".
+- **Live as the seeded leader (390 px):**
+  - The generator made 24 Morning Prayers, 2 Week of Fire and 2 Cell Celebrations.
+  - Check-in from Today, marking and saving all work. The clash warning appears, then "Schedule anyway" and cancel work.
+  - Found and fixed: the agenda overflowed a phone, because grid columns sized to their content (now `grid-cols-1`). The clash warning landed under the tab bar (it now scrolls into view).
+  - The test marks and the test event were removed afterwards.
+
 ## Known gaps / next
+- Phase 6:
+  - The calendar is an agenda list; there is no month grid yet.
+  - Notification delivery is Phase 9; only the outbox rows exist.
+  - The generator doesn't extend Cell Meeting series past their weeks.
+  - The Week of Fire weekday comes from `event_types`, not church settings.
+  - The devotion streak is Phase 7.
+  - The offline queue isn't backed by a service worker (it sends when the app is next open).
+  - The OpenAPI TypeScript client hasn't been regenerated; the types are hand-written in `lib/types.ts`.
 - E2e doesn't cover admin screens (groups, role and move), because admins need TOTP codes. That needs a TOTP helper and a known seeded factor. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).
 - Docker Desktop on this machine has dropped host port forwarding a few times. If Supabase stops answering after a restart, `docker restart supabase_kong_timecheck supabase_inbucket_timecheck` (and `supabase_db_timecheck` for the API) brings the ports back.
 - Docker base images use tags; pin digests before production.

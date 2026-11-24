@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { callApi, fail, isSameOrigin, sessionFrom, signedOut, withSession } from "@/lib/server/bff";
 
-// Browser → BFF → API for app data. Only these resource roots are reachable; auth flows have their own routes.
-const ALLOWED = new Set(["me", "members", "groups"]);
+// Browser → BFF → API for app data (PUT is attendance marking). Only these resource roots are reachable; auth flows have their own routes.
+const ALLOWED = new Set(["me", "members", "groups", "events", "event-types"]);
 const MAX_BODY = 64 * 1024;
 
 async function forward(req: NextRequest, { params }: RouteContext<"/api/bff/[...path]">) {
@@ -33,4 +33,4 @@ async function forward(req: NextRequest, { params }: RouteContext<"/api/bff/[...
   return withSession(out, session);
 }
 
-export { forward as GET, forward as POST, forward as PATCH };
+export { forward as GET, forward as POST, forward as PATCH, forward as PUT };

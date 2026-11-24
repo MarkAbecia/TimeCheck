@@ -1,12 +1,16 @@
+"use client";
+
 import { LogOut } from "lucide-react";
+import { clearQueue } from "@/lib/offline-queue";
 
 /**
  * A plain form POST: works before hydration and with JS off. /api/auth/logout revokes the session and redirects
- * to /login. "shell" is the icon button that sits beside the theme toggle on the black shell.
+ * to /login. Attendance still queued offline is dropped, so the next person on a shared phone never sends it.
+ * "shell" is the icon button that sits beside the theme toggle on the black shell.
  */
 export function SignOutButton({ label, className, variant = "link" }: { label: string; className?: string; variant?: "link" | "shell" }) {
   return (
-    <form action="/api/auth/logout" method="post" className={className}>
+    <form action="/api/auth/logout" method="post" className={className} onSubmit={clearQueue}>
       {variant === "shell" ? (
         <button
           type="submit"

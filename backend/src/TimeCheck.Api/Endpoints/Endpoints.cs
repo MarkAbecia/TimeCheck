@@ -2,9 +2,11 @@ using TimeCheck.Api.Auth;
 using TimeCheck.Application.Abstractions;
 using TimeCheck.Application.Common;
 using TimeCheck.Application.Features.Admin;
+using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
 using TimeCheck.Application.Features.Members;
+using TimeCheck.Domain.Enums;
 
 namespace TimeCheck.Api.Endpoints;
 
@@ -24,6 +26,9 @@ public static class Endpoints
             await InvalidateCachedUser(http, users, ct); // the onboarding gate reads the cached user
             return result;
         });
+        // Today and history are app pages, so they sit behind the onboarding gate (the fallback policy), not just SignedIn.
+        v1.MapGet("/me/today", (Dispatcher d, CancellationToken ct) => d.Send(new GetMyToday(), ct)).WithTags("Me");
+        v1.MapGet("/me/attendance", (DateOnly? from, DateOnly? to, Dispatcher d, CancellationToken ct) => d.Send(new GetMyAttendance(from, to), ct)).WithTags("Me");
         me.MapPost("/privacy-consent", async (AcceptPrivacyNotice body, Dispatcher d, HttpContext http, IUserDirectory users, CancellationToken ct) =>
         {
             var result = await d.Send(body, ct);
@@ -62,6 +67,28 @@ public static class Endpoints
             .RequireAuthorization(Policies.Admin);
         members.MapPost("/{id:guid}/move", (Guid id, MoveMember body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
             .RequireAuthorization(Policies.Admin);
+
+        v1.MapGet("/event-types", (Dispatcher d, CancellationToken ct) => d.Send(new ListEventTypes(), ct)).WithTags("Events");
+
+        var events = v1.MapGroup("/events").WithTags("Events");
+        events.MapGet("", (DateOnly from, DateOnly to, Guid? groupId, Guid? typeId, EventCategory? category, bool? includeCancelled,
+            Dispatcher d, CancellationToken ct) => d.Send(new ListEvents(from, to, groupId, typeId, category, includeCancelled ?? false), ct));
+        events.MapGet("/{id:guid}", (Guid id, Guid? groupId, Dispatcher d, CancellationToken ct) => d.Send(new GetEvent(id, groupId), ct));
+        events.MapPost("", async (CreateEvent body, Dispatcher d, CancellationToken ct) =>
+        {
+            var id = await d.Send(body, ct);
+            return Results.Created($"/api/v1/events/{id}", await d.Send(new GetEvent(id), ct));
+        }).RequireAuthorization(Policies.Leader);
+        events.MapPatch("/{id:guid}", (Guid id, UpdateEvent body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
+            .RequireAuthorization(Policies.Leader);
+        events.MapPost("/{id:guid}/cancel", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new CancelEvent(id), ct))
+            .RequireAuthorization(Policies.Leader);
+        // PUT: resending the same marks is harmless, so phones can retry (§9). The response is the saved roster.
+        events.MapPut("/{id:guid}/attendance", async (Guid id, Guid? groupId, MarkAttendance body, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(body with { EventId = id }, ct);
+            return await d.Send(new GetEvent(id, groupId), ct);
+        }).RequireAuthorization(Policies.Leader);
 
         var admin = v1.MapGroup("/admin").WithTags("Admin");
         admin.MapGet("/audit-logs", (Guid? actorId, string? action, string? entityType, DateTimeOffset? from, DateTimeOffset? to,

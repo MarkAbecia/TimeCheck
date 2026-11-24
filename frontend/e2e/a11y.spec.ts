@@ -13,7 +13,7 @@ test("sign-in and forgot password", async ({ page }) => {
 test.describe("signed in as a leader", () => {
   test.use({ storageState: LEADER_STATE });
 
-  for (const path of ["/", "/members", "/members/new", "/profile"]) {
+  for (const path of ["/", "/members", "/members/new", "/profile", "/events", "/events/new", "/history"]) {
     test(path, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

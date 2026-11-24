@@ -111,7 +111,11 @@ public sealed class ProblemExceptionHandler(IProblemDetailsService problems, ILo
             ForbiddenException f => new ProblemDetails { Status = 403, Title = f.Message },
             ConflictException c => new ProblemDetails { Status = 409, Title = c.Message },
             DuplicateWarningException w => new ProblemDetails { Status = 409, Title = w.Message, Extensions = { ["code"] = "duplicate.warning", ["matches"] = w.Matches } },
-            DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Someone else changed this at the same time. Reload and try again." },
+            EventConflictWarningException w => new ProblemDetails { Status = 409, Title = w.Message, Extensions = { ["code"] = "event.conflict", ["conflicts"] = w.Conflicts } },
+            // Two phones creating the same row at once (e.g. both marking an unmarked person): the loser retries with fresh data.
+            DbUpdateException { InnerException: Npgsql.PostgresException { SqlState: "23505" } } =>
+                new ProblemDetails { Status = 409, Title = "Someone else changed this at the same time. Reload and try again.", Extensions = { ["code"] = "stale" } },
+            DbUpdateConcurrencyException => new ProblemDetails { Status = 409, Title = "Someone else changed this at the same time. Reload and try again.", Extensions = { ["code"] = "stale" } },
             BadHttpRequestException b => new ProblemDetails { Status = b.StatusCode, Title = "The request could not be read." },
             _ => new ProblemDetails { Status = 500, Title = "Something went wrong on our side." },
         };

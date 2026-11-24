@@ -23,6 +23,16 @@ public sealed class DuplicateWarningException(IReadOnlyList<DuplicateMatch> matc
     public IReadOnlyList<DuplicateMatch> Matches { get; } = matches;
 }
 
+/// <summary>An event already booked at that time for the same group (or church-wide). A warning, not a block (§6.6).</summary>
+public sealed record EventConflict(Guid Id, string Title, DateTimeOffset StartsAt, DateTimeOffset EndsAt);
+
+/// <summary>Mapped to 409 with the conflicts; the client asks the user to confirm and resends with confirmConflicts.</summary>
+public sealed class EventConflictWarningException(IReadOnlyList<EventConflict> conflicts)
+    : Exception("Something is already scheduled at that time.")
+{
+    public IReadOnlyList<EventConflict> Conflicts { get; } = conflicts;
+}
+
 public sealed record CursorPage<T>(IReadOnlyList<T> Items, string? NextCursor);
 
 /// <summary>Opaque keyset cursor: (timestamp, id).</summary>
