@@ -3,7 +3,7 @@ import { callApi, fail, isSameOrigin, sessionFrom, signedOut, withSession } from
 
 // Browser → BFF → API for app data (PUT is attendance marking and devotion upload). Only these resource roots are reachable;
 // auth flows have their own routes.
-const ALLOWED = new Set(["me", "members", "groups", "events", "event-types", "devotions", "invites", "reports"]);
+const ALLOWED = new Set(["me", "members", "groups", "events", "event-types", "devotions", "invites", "reports", "admin"]); // the API authorizes each route
 const MAX_BODY = 64 * 1024;
 // Devotion photos (§6.3): up to 10 MB plus the form fields. The only route that takes a file.
 const MAX_UPLOAD = 10 * 1024 * 1024 + 64 * 1024;

@@ -598,12 +598,12 @@ public sealed class ReportBuilder(IAppDbContext db, IReportCache cache, TimeProv
     private static DateOnly WeekStart(DateOnly d) => d.AddDays(-(((int)d.DayOfWeek + 6) % 7));
     private static string GroupName(Dictionary<Guid, string> groups, Guid? id) => id is { } g ? groups.GetValueOrDefault(g, "Unknown group") : "Not in a group";
 
-    /// <summary>Upper bounds from churches.settings.reports.ageBrackets (default ≤12, 13–17, 18–24, 25–35, 36+).</summary>
+    /// <summary>Upper bounds from churches.settings.ageBrackets (default ≤12, 13–17, 18–24, 25–35, 36+).</summary>
     public static int[] AgeBrackets(string settings)
     {
         try
         {
-            if (JsonNode.Parse(settings)?["reports"]?["ageBrackets"] is JsonArray a)
+            if (JsonNode.Parse(settings)?["ageBrackets"] is JsonArray a)
             {
                 var bounds = a.Select(x => x!.GetValue<int>()).ToArray();
                 if (bounds.Length > 0 && bounds.Zip(bounds.Skip(1)).All(z => z.First < z.Second) && bounds[0] >= 0) return bounds;

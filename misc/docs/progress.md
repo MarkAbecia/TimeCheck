@@ -339,7 +339,7 @@ Not done in this phase (needs a decision or a later phase):
 - `/hallmark audit` re-run (`audits/2026-11-25-hallmark-phase11.md`): 3 small Floor fixes for a polish pass (`transition-all` on Button, a literal shadow on the auth card, tracked caps on the unused dropdown shortcut), all three fixed. Also fixed after it: the report filters fold under "Change filters" on phones (always open from 640 px), and three toasts that repeated what the screen shows are gone (review saved, group archived, deactivate/reactivate; "Devotion sent" stays, since the leader receiving it isn't visible). Still open: the caps labels' letter spacing, kept as a conflict with the direction.
 - Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
 - No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
-- The rest of §6.10 isn't built: the settings screen (retention, devotion windows, age brackets, AI thresholds). MFA reset, member search, force logout and the audit log viewer were added on 2026-11-25 (see Phase 12).
+- The rest of §6.10 isn't built: settings for devotion windows, reminder times, AI thresholds, event types and timezone. MFA reset, member search, force logout, the audit log viewer and settings for age groups and retention were added on 2026-11-25 (see Phase 12).
 
 ## Phase 12 — Deploy (in progress, 2026-11-25)
 
@@ -385,10 +385,23 @@ Added while waiting on accounts (§6.10, 2026-11-25):
   each entry links its actor ("By …") and the person it's about ("About …") to filter by them, so one person's history is
   one click. Before/after values open under "What changed". The API gained `entityId` filtering (indexed) and names for the
   actor and the person. Server-rendered with a GET form: no client JS. On phones the filters fold like the report filters.
+- **Settings, first pass** (super admins, `/settings`): age groups for the Member Report and how long data is kept (guests
+  who didn't join, deactivated people, the audit log). `GET`/`PATCH /admin/settings` changes only those keys in
+  `churches.settings`, with the same bounds on both sides (1–8 increasing ages up to 120; guests 1–365 days; deactivated
+  people 1–10 years; audit log 365–3650 days, §8.4's year minimum). Audited as `settings.update` with before and after; the
+  report cache is cleared like any audited write. The page previews the age groups as the report will label them. A new
+  guest-retention period applies to guests logged afterwards (each invite stores its purge date). The BFF now passes
+  `/admin/*` through; the API authorizes each route.
+- **Fixed on the way (settings):** the Member Report read age brackets from `settings.reports.ageBrackets` and guest
+  retention from `settings.invites.purgeAfterDays`, but `create_church` writes `settings.ageBrackets` and
+  `settings.retention.guestInviteDays`. The values matched the defaults, so nothing showed; the readers now use the
+  bootstrap's keys.
 - **Fixed on the way:** when the API refused a token that hadn't expired (a deactivated person, and now a signed-out one),
   pages redirected to `/login`, which the proxy sent back to `/` because the cookie still looked valid: a redirect loop.
   Those redirects now go to `/login?ended=1`, where the proxy clears the cookies. Side effect: a link to that URL signs
   someone out of TimeCheck, which is harmless.
+- Checked (settings): 6 integration tests (change and keep other keys, audited; bad values refused; super admins only) and an
+  e2e flow (an out-of-order age is caught, a group removed, guest days changed, stored and audited; axe clean).
 - Checked: 7 integration tests (reach rules, mobile in both formats, `%` matched literally, notice and audit, old tokens
   refused and new ones accepted after a logout); e2e: the admin flow searches for a member and resets a real factor through
   local Supabase, a second flow signs a member out while she's signed in elsewhere, then she lands on sign-in and signs
@@ -397,7 +410,8 @@ Added while waiting on accounts (§6.10, 2026-11-25):
 - **Local environment, not the app:** Docker Desktop's port forwarding intermittently stalls connections to the Supabase
   containers (curl to the gateway hung 2 of 6 times while the gateway logged only the 4 that arrived), and
   `supabase_vector_timecheck` restarts every few seconds. That made e2e runs flaky today (a hung registration, 502s on
-  sign-in). A Docker Desktop restart is the likely fix.
+  sign-in). A Docker Desktop restart is the likely fix. Restarting only `supabase_kong_timecheck` and
+  `supabase_db_timecheck` also clears it for a while; restart the API and Worker afterwards (their pooled connections break).
 
 Not done:
 - Anything that needs the owner: Render and Supabase accounts, secrets, an email provider (ADR 0007), the domain, the first
@@ -408,7 +422,6 @@ Not done:
 - Phase 10:
   - Report titles, columns and scope lines come from the API in English, not from next-intl.
   - The PDF has tables only, no chart.
-  - Age brackets come from church settings but have no settings screen.
   - Merging of identical concurrent builds is per API instance; Worker-only changes (invite purge) show within the 10-minute cache.
   - No test starts the Worker host itself, which is how the missing registration slipped through.
 - Phase 9:
@@ -421,7 +434,7 @@ Not done:
 - Phase 7:
   - No real detection provider (Q6, ADR 0006), and no OCR, so a photo is scored as an image, not as the text on it.
   - Devotions don't write DEVOTION_DAY/NIGHT attendance rows; reports can count them from `devotions`.
-  - No settings screen for windows, reminder times or thresholds yet.
+  - No settings screen for windows, reminder times or thresholds yet (settings pass 2).
   - Mirrored EXIF orientations aren't handled.
   - The group list is capped at 500 members.
   - Hangfire runs could overlap if a batch takes over a minute; the concurrency token keeps the data right, but work may repeat.

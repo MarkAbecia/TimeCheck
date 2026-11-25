@@ -206,6 +206,10 @@ public static class Endpoints
             .RequireAuthorization(Policies.SuperAdmin);
         admin.MapGet("/audit-actions", (Dispatcher d, CancellationToken ct) => d.Send(new ListAuditActions(), ct))
             .RequireAuthorization(Policies.SuperAdmin);
+        admin.MapGet("/settings", (Dispatcher d, CancellationToken ct) => d.Send(new GetChurchSettings(), ct))
+            .RequireAuthorization(Policies.SuperAdmin);
+        admin.MapPatch("/settings", (UpdateChurchSettings body, Dispatcher d, CancellationToken ct) => d.Send(body, ct))
+            .RequireAuthorization(Policies.SuperAdmin);
     }
 
     private static Task InvalidateCachedUser(HttpContext http, IUserDirectory users, CancellationToken ct) =>

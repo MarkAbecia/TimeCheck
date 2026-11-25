@@ -10,5 +10,7 @@ public sealed class Church : BaseEntity
     /// <summary>Raw jsonb settings (devotion windows, AI thresholds, retention...).</summary>
     public string Settings { get; private set; } = "{}";
 
+    public void ReplaceSettings(string json) => Settings = json;
+
     public TimeZoneInfo GetTimeZone() => TimeZoneInfo.FindSystemTimeZoneById(Timezone);
 }

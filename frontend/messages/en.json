@@ -91,6 +91,42 @@
     "newest": "Newest",
     "older": "Older"
   },
+  "settings": {
+    "title": "Settings",
+    "lead": "Church-wide settings. Changes are saved for everyone and recorded in the audit log.",
+    "agesTitle": "Age groups",
+    "agesLead": "The Member Report counts people by age group. Enter the oldest age in each group; everyone older falls in the last group.",
+    "ageLimit": "Group {n}: up to age",
+    "removeAge": "Remove group {n}",
+    "addAge": "Add a group",
+    "ageRange": "Enter an age from 1 to 120.",
+    "ageOrder": "Make this older than {previous}.",
+    "agesPreview": "Groups: {groups}.",
+    "agesPreviewWaiting": "Fix the ages above to see the groups.",
+    "retentionTitle": "How long data is kept",
+    "retentionLead": "TimeCheck removes old data every night. Shorter is kinder to privacy; reports can only look back as far as the data goes.",
+    "guestInviteDays": {
+      "label": "Guests who didn’t join",
+      "hint": "Days after the event before a guest’s name and contact details are removed. Applies to guests logged from now on.",
+      "unit": "days"
+    },
+    "deactivatedUserYears": {
+      "label": "Deactivated people",
+      "hint": "Years after someone is deactivated before their account and personal details are erased.",
+      "unit": "years"
+    },
+    "auditLogDays": {
+      "label": "Audit log",
+      "hint": "Days each entry is kept. At least a year, so changes can always be traced back that far.",
+      "unit": "days"
+    },
+    "between": "Enter a number from {min} to {max}.",
+    "save": "Save settings",
+    "saved": "Saved.",
+    "offline": "You’re offline. Try again when you’re connected.",
+    "needsMfa": "Sign in again with your code to change settings.",
+    "unexpected": "Something went wrong on our side. Try again in a moment."
+  },
   "placeholder": {
     "title": "On its way",
     "body": "This part of TimeCheck is being built. Today's events are ready now.",

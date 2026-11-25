@@ -210,3 +210,9 @@ export type ReportJob = {
   expiresAt: string | null;
   error: string | null;
 };
+
+/** Super Admin settings, first pass (§6.10): GET/PATCH /admin/settings. */
+export type ChurchSettings = {
+  ageBrackets: number[];
+  retention: { guestInviteDays: number; deactivatedUserYears: number; auditLogDays: number };
+};

@@ -36,8 +36,8 @@ internal static class InviteAccess
     public static int PurgeAfterDays(string settings)
     {
         using var doc = JsonDocument.Parse(settings);
-        return doc.RootElement.TryGetProperty("invites", out var i) && i.ValueKind == JsonValueKind.Object &&
-            i.TryGetProperty("purgeAfterDays", out var v) && v.TryGetInt32(out var days) && days > 0 ? days : 90;
+        return doc.RootElement.TryGetProperty("retention", out var i) && i.ValueKind == JsonValueKind.Object &&
+            i.TryGetProperty("guestInviteDays", out var v) && v.TryGetInt32(out var days) && days > 0 ? days : 90;
     }
 
     /// <summary>Invites this user may see: their own, those of members of groups they lead, or all for admins.</summary>

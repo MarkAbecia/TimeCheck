@@ -87,9 +87,9 @@ public class ReportFilesTests
     [Fact]
     public void Age_brackets_come_from_church_settings_when_valid()
     {
-        ReportBuilder.AgeBrackets("""{"reports":{"ageBrackets":[17,29]}}""").Should().Equal(17, 29);
-        ReportBuilder.AgeBrackets("""{"reports":{"ageBrackets":[30,20]}}""").Should().Equal(12, 17, 24, 35);
-        ReportBuilder.AgeBrackets("""{"reports":{"ageBrackets":"x"}}""").Should().Equal(12, 17, 24, 35);
+        ReportBuilder.AgeBrackets("""{"ageBrackets":[17,29]}""").Should().Equal(17, 29);
+        ReportBuilder.AgeBrackets("""{"ageBrackets":[30,20]}""").Should().Equal(12, 17, 24, 35);
+        ReportBuilder.AgeBrackets("""{"ageBrackets":"x"}""").Should().Equal(12, 17, 24, 35);
     }
 
     [Fact]

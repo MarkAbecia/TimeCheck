@@ -151,3 +151,45 @@ test("a super admin reads one person's history in the audit log", async ({ page 
     sql(`update public.app_users set sessions_revoked_at = null where id = '${LIA}';`); // seed state
   }
 });
+
+test("a super admin changes the age groups and how long guests are kept", async ({ page }) => {
+  test.setTimeout(90_000);
+  const ADMIN_AUTH = "30000000-0000-0000-0000-000000000002";
+  const church = `(select church_id from public.app_users where email = '${ADMIN}')`;
+  const original = sql(`select settings from public.churches where id = ${church};`);
+  const setRole = (role: string) => {
+    sql(`update public.app_users set role = '${role}' where email = '${ADMIN}';`);
+    forgetCachedUser(ADMIN_AUTH);
+  };
+  setRole("SUPER_ADMIN");
+  try {
+    await signInAsAdmin(page);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Today", { timeout: 30_000 });
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await expect(page.getByText("Groups: 12 and under, 13–17, 18–24, 25–35, 36 and over.")).toBeVisible();
+    await expectAccessible(page);
+    // An age lower than the one before is caught before saving.
+    await page.getByLabel("Group 2: up to age").fill("10");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.getByText("Make this older than 12.")).toBeVisible();
+    await page.getByLabel("Group 2: up to age").fill("17");
+
+    await page.getByRole("button", { name: "Remove group 4" }).click();
+    await page.getByLabel("Guests who didn’t join").fill("60");
+    await expect(page.getByText("Groups: 12 and under, 13–17, 18–24, 25 and over.")).toBeVisible();
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible({ timeout: 15_000 });
+
+    const stored = sql(
+      `select (settings->'ageBrackets')::text || '|' || (settings->'retention'->>'guestInviteDays') from public.churches where id = ${church};`,
+    );
+    expect(stored).toBe("[12, 17, 24]|60");
+    expect(
+      sql(`select count(*) > 0 from public.audit_logs where action = 'settings.update' and occurred_at > now() - interval '5 minutes';`),
+    ).toBe("t");
+  } finally {
+    setRole("ADMIN");
+    sql(`update public.churches set settings = $s$${original}$s$::jsonb where id = ${church};`); // seed state
+  }
+});
