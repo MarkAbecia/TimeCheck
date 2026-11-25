@@ -410,6 +410,10 @@ Added while waiting on accounts (§6.10, 2026-11-25):
   pages redirected to `/login`, which the proxy sent back to `/` because the cookie still looked valid: a redirect loop.
   Those redirects now go to `/login?ended=1`, where the proxy clears the cookies. Side effect: a link to that URL signs
   someone out of TimeCheck, which is harmless.
+- **Admin e2e gaps closed:** `flows/groups.spec.ts` creates a group, moves a newly registered member into it, promotes them
+  with a reason, renames the group and makes them its leader, then checks the two refusals (archiving a group with
+  members; demoting someone who still leads a group, with the API's message shown) before emptying and archiving it. It
+  checks the stored rows and the audit trail in order. The teardown now also removes "E2E " groups.
 - Checked (settings, second pass): 11 more integration tests (times and limits change and members then see their own score;
   7 bad times and 3 bad limits refused) and the e2e flow extended (an after-midnight Night reminder is caught; the Night
   reminder, "likely AI" limit and member visibility are stored).
@@ -456,7 +460,7 @@ Not done:
   - The Week of Fire weekday comes from `event_types`, not church settings.
   - The offline queue isn't backed by a service worker (it sends when the app is next open).
   - The OpenAPI TypeScript client hasn't been regenerated; the types are hand-written in `lib/types.ts`.
-- E2e covers only the admin "Account and data" flow so far (Phase 11 added the TOTP helper); groups, role and move have no admin e2e yet. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).
+- Admin e2e covers account and data, search, MFA reset, force logout, the audit log, settings, and (`flows/groups.spec.ts`) groups, role changes and moves. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).
 - Docker Desktop on this machine has dropped host port forwarding a few times. If Supabase stops answering after a restart, `docker restart supabase_kong_timecheck supabase_inbucket_timecheck` (and `supabase_db_timecheck` for the API) brings the ports back.
 - Docker base images use tags; pin digests before production.
 - Next dev mode logs CSP warnings for inline styles injected by the dev tooling. The production build doesn't (checked in Phase 3).

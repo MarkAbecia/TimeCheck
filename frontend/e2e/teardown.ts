@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { ADMIN, E2E_DOMAIN } from "./helpers";
 
-// Removes the people the specs registered (only @e2e.timecheck.test), the events they scheduled ("E2E " titles) and devotions they sent ("E2E " text, photo already removed) and guests invited to those events, with everything that points at them.
+// Removes the people the specs registered (only @e2e.timecheck.test), the groups ("E2E " names) and events they made ("E2E " titles), devotions they sent ("E2E " text, photo already removed) and guests invited to those events, with everything that points at them.
 // shortcut: goes through `docker exec` into the local Supabase db container; use a direct connection when e2e runs in CI.
 const SQL = `
 begin;
@@ -28,6 +28,11 @@ delete from public.audit_logs where entity_type = 'event' and entity_id in (sele
 delete from public.events where id in (select id from e2e_events);
 delete from public.audit_logs where entity_type = 'devotion' and entity_id in (select id::text from public.devotions where text_content like 'E2E %');
 delete from public.devotions where text_content like 'E2E %' and image_path is null;
+-- Groups the groups spec created ("E2E " names); their people are already gone above.
+create temp table e2e_groups as select id from public.cell_groups where name like 'E2E %';
+delete from public.group_memberships where group_id in (select id from e2e_groups);
+delete from public.audit_logs where entity_type = 'cell_group' and entity_id in (select id::text from e2e_groups);
+delete from public.cell_groups where id in (select id from e2e_groups);
 -- The admin spec enrols a throwaway authenticator; the seed has none.
 delete from auth.mfa_factors where user_id = (select id from auth.users where email = '${ADMIN}');
 commit;`;
