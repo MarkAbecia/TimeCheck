@@ -4,6 +4,8 @@
  */
 export const ACCESS_COOKIE = "tc_at";
 export const REFRESH_COOKIE = "tc_rt";
+/** Where to send someone whose token the API refused; the proxy clears their cookies there. */
+export const SESSION_ENDED = "/login?ended=1";
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 30; // Supabase refresh tokens rotate on use; this bounds an idle session.
 
 export type Claims = { sub: string; exp: number; aal?: "aal1" | "aal2"; email?: string; amr?: { method: string }[] };

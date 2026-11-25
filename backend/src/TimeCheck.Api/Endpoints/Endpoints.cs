@@ -66,6 +66,8 @@ public static class Endpoints
         }).RequireAuthorization(Policies.Leader);
 
         var members = v1.MapGroup("/members").WithTags("Members").RequireAuthorization(Policies.Leader);
+        members.MapGet("", (string q, Dispatcher d, CancellationToken ct) => d.Send(new SearchMembers(q), ct))
+            .RequireAuthorization(Policies.Admin);
         members.MapGet("/{id:guid}", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new GetMember(id), ct));
         members.MapPatch("/{id:guid}", (Guid id, UpdateMember body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct));
         members.MapPost("/{id:guid}/status", (Guid id, ChangeMemberStatus body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct));
@@ -74,6 +76,10 @@ public static class Endpoints
         members.MapPost("/{id:guid}/move", (Guid id, MoveMember body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
             .RequireAuthorization(Policies.Admin);
         members.MapPost("/{id:guid}/active", (Guid id, SetMemberActive body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
+            .RequireAuthorization(Policies.Admin);
+        members.MapPost("/{id:guid}/mfa-reset", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new ResetMemberMfa(id), ct))
+            .RequireAuthorization(Policies.Admin);
+        members.MapPost("/{id:guid}/force-logout", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new ForceLogout(id), ct))
             .RequireAuthorization(Policies.Admin);
         // Data-subject rights (§8.4): one person's data as JSON, and erasure of a deactivated person.
         members.MapGet("/{id:guid}/data-export", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new ExportPersonData(id), ct))
@@ -194,9 +200,11 @@ public static class Endpoints
         reportJobs.MapGet("/{id:guid}/download", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new GetReportDownload(id), ct));
 
         var admin = v1.MapGroup("/admin").WithTags("Admin");
-        admin.MapGet("/audit-logs", (Guid? actorId, string? action, string? entityType, DateTimeOffset? from, DateTimeOffset? to,
+        admin.MapGet("/audit-logs", (Guid? actorId, string? action, string? entityType, string? entityId, DateTimeOffset? from, DateTimeOffset? to,
                 int? limit, string? cursor, Dispatcher d, CancellationToken ct) =>
-                d.Send(new ListAuditLogs(actorId, action, entityType, from, to, limit ?? 50, cursor), ct))
+                d.Send(new ListAuditLogs(actorId, action, entityType, from, to, limit ?? 50, cursor, entityId), ct))
+            .RequireAuthorization(Policies.SuperAdmin);
+        admin.MapGet("/audit-actions", (Dispatcher d, CancellationToken ct) => d.Send(new ListAuditActions(), ct))
             .RequireAuthorization(Policies.SuperAdmin);
     }
 

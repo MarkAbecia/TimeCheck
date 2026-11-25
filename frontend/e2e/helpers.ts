@@ -29,6 +29,10 @@ export const sql = (query: string) =>
     },
   ).trim();
 
+/** Drops the API's 60 s cache of a person's role and status, so a change made with `sql` applies on their next request. */
+export const forgetCachedUser = (authUserId: string) =>
+  execFileSync("docker", ["exec", process.env.E2E_REDIS_CONTAINER ?? "docker-redis-1", "redis-cli", "DEL", `tc:user:${authUserId}`]);
+
 const MAILPIT = process.env.MAILPIT_URL ?? "http://127.0.0.1:55424";
 
 export async function signIn(page: Page, email: string, password = PASSWORD) {

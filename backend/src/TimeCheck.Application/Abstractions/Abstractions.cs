@@ -7,7 +7,7 @@ namespace TimeCheck.Application.Abstractions;
 /// <summary>The signed-in user, resolved from app_users (never from token claims). See ADR 0002.</summary>
 public sealed record CurrentUserInfo(
     Guid AppUserId, Guid ChurchId, UserRole Role, bool IsActive, IReadOnlyList<Guid> LedGroupIds, Guid? GroupId,
-    bool MustChangePassword = false, string? PrivacyConsentVersion = null);
+    bool MustChangePassword = false, string? PrivacyConsentVersion = null, DateTimeOffset? SessionsRevokedAt = null);
 
 /// <summary>Account rules set by configuration (Api layer).</summary>
 public interface IAccountPolicy
@@ -28,6 +28,9 @@ public interface IAuthAdmin
 
     /// <summary>Removes a sign-in account; used to undo an invite when saving the member fails.</summary>
     Task DeleteUserAsync(Guid authUserId, CancellationToken ct);
+
+    /// <summary>Removes every MFA factor (§6.10 reset MFA), so the next sign-in sets up a new code. Returns how many were removed.</summary>
+    Task<int> RemoveMfaFactorsAsync(Guid authUserId, CancellationToken ct);
 }
 
 /// <summary>Shadow columns holding blind indexes on app_users, for dedup queries via EF.Property.</summary>
@@ -97,6 +100,8 @@ public interface IAppDbContext
 
     /// <summary>Retention (§8.4): deletes one church's audit rows older than <paramref name="before"/>; the database refuses anything under a year.</summary>
     Task<int> PurgeAuditLogsAsync(Guid churchId, DateTimeOffset before, CancellationToken ct);
+    /// <summary>Deletes a person's Supabase Auth sessions (and so their refresh tokens), in the current transaction.</summary>
+    Task<int> RevokeAuthSessionsAsync(Guid authUserId, CancellationToken ct);
 
     /// <summary>Forgets tracked changes after a failed save, so a long-running job can carry on with the next item.</summary>
     void DiscardChanges();

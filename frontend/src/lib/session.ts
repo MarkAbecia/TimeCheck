@@ -6,7 +6,7 @@ import type { Role } from "./nav";
 import { nextOnboardingStep, type Me, type OnboardingStep } from "./onboarding";
 import { callApi } from "./server/bff";
 import { env } from "./server/env";
-import { ACCESS_COOKIE, readClaims } from "./server/tokens";
+import { ACCESS_COOKIE, readClaims, SESSION_ENDED } from "./server/tokens";
 
 export type Session = {
   firstName: string;
@@ -29,7 +29,7 @@ export const getMe = cache(async (): Promise<{ me: Me; aal: string | undefined }
 /** For (app) pages: a signed-in, fully onboarded user, or a redirect to whatever is owed. */
 export async function requireSession(): Promise<Session> {
   const current = await getMe();
-  if (!current) redirect("/login");
+  if (!current) redirect(SESSION_ENDED);
   const step = nextOnboardingStep(current.me, current.aal);
   if (step) redirect(step);
   return toSession(current.me);
@@ -48,7 +48,7 @@ export async function requireRole(min: Role): Promise<Session> {
 /** For onboarding pages: signed in and owing exactly this step; otherwise sent where they belong. */
 export async function requireStep(step: OnboardingStep): Promise<Me> {
   const current = await getMe();
-  if (!current) redirect("/login");
+  if (!current) redirect(SESSION_ENDED);
   const owed = nextOnboardingStep(current.me, current.aal);
   if (owed !== step) redirect(owed ?? "/");
   return current.me;

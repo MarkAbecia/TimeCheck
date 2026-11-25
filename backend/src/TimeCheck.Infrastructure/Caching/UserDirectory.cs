@@ -29,7 +29,7 @@ public sealed class UserDirectory(AppDbContext db, IConnectionMultiplexer redis,
         // Tenant filter is off here: the church isn't known until the user is found.
         var user = await db.Users.IgnoreQueryFilters().AsNoTracking()
             .Where(u => u.AuthUserId == authUserId && u.DeletedAt == null)
-            .Select(u => new { u.Id, u.ChurchId, u.Role, u.DeactivatedAt, u.MustChangePassword, u.PrivacyConsentVersion })
+            .Select(u => new { u.Id, u.ChurchId, u.Role, u.DeactivatedAt, u.MustChangePassword, u.PrivacyConsentVersion, u.SessionsRevokedAt })
             .FirstOrDefaultAsync(ct);
         if (user is null) return null;
 
@@ -41,7 +41,7 @@ public sealed class UserDirectory(AppDbContext db, IConnectionMultiplexer redis,
             .Select(m => (Guid?)m.GroupId).FirstOrDefaultAsync(ct);
 
         var info = new CurrentUserInfo(user.Id, user.ChurchId, user.Role, user.DeactivatedAt is null, led, groupId,
-            user.MustChangePassword, user.PrivacyConsentVersion);
+            user.MustChangePassword, user.PrivacyConsentVersion, user.SessionsRevokedAt);
         try
         {
             await redis.GetDatabase().StringSetAsync(Key(authUserId), JsonSerializer.Serialize(info), Ttl);

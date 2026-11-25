@@ -92,7 +92,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }));
     }
 
-    public string Token(Guid authUserId, string aal = "aal1", string issuer = Issuer, DateTime? expires = null, SecurityKey? key = null)
+    public string Token(Guid authUserId, string aal = "aal1", string issuer = Issuer, DateTime? expires = null, SecurityKey? key = null, DateTime? issuedAt = null)
     {
         var handler = new JwtSecurityTokenHandler();
         var token = handler.CreateJwtSecurityToken(new SecurityTokenDescriptor
@@ -102,6 +102,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             Subject = new ClaimsIdentity([new Claim("sub", authUserId.ToString()), new Claim("aal", aal), new Claim("role", "authenticated")]),
             NotBefore = (expires ?? DateTime.UtcNow.AddHours(1)).AddHours(-2),
             Expires = expires ?? DateTime.UtcNow.AddHours(1),
+            IssuedAt = issuedAt ?? DateTime.UtcNow,
             SigningCredentials = new SigningCredentials(key ?? _signingKey, SecurityAlgorithms.RsaSha256),
         });
         return handler.WriteToken(token);
@@ -148,6 +149,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
           confirmation_token text, email_change text, email_change_token_new text, recovery_token text);
         create table auth.identities (id uuid primary key, user_id uuid, provider_id text, identity_data jsonb, provider text,
           last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz);
+        create table auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null);
         create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
         """;
 
@@ -177,6 +179,8 @@ public sealed class FakeAuthAdmin(Func<string> connectionString) : TimeCheck.App
     public List<Guid> PasswordSetFor { get; } = [];
     public List<string> Invited { get; } = [];
     public List<Guid> Deleted { get; } = [];
+    /// <summary>Factors per auth user that a reset would remove; tests set it.</summary>
+    public Dictionary<Guid, int> Factors { get; } = [];
 
     public async Task<Guid> InviteUserAsync(string email, CancellationToken ct)
     {
@@ -204,6 +208,11 @@ public sealed class FakeAuthAdmin(Func<string> connectionString) : TimeCheck.App
         cmd.Parameters.AddWithValue("id", authUserId);
         await cmd.ExecuteNonQueryAsync(ct);
         lock (Deleted) Deleted.Add(authUserId);
+    }
+
+    public Task<int> RemoveMfaFactorsAsync(Guid authUserId, CancellationToken ct)
+    {
+        lock (Factors) return Task.FromResult(Factors.Remove(authUserId, out var n) ? n : 0);
     }
 
     public Task SetPasswordAsync(Guid authUserId, string newPassword, CancellationToken ct)

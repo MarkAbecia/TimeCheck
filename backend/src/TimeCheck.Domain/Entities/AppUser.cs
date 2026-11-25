@@ -41,6 +41,8 @@ public sealed class AppUser : BaseEntity, IChurchScoped, IAuditedEntity
     public DateTimeOffset? PrivacyConsentAt { get; private set; }
     public bool MustChangePassword { get; private set; } = true;
     public DateTimeOffset? DeactivatedAt { get; private set; }
+    /// <summary>Access tokens issued before this are refused (§6.10 force logout).</summary>
+    public DateTimeOffset? SessionsRevokedAt { get; private set; }
     public DateTimeOffset? DeletedAt { get; private set; }
     public Guid? CreatedBy { get; private set; }
     public Guid? UpdatedBy { get; private set; }
@@ -166,6 +168,12 @@ public sealed class AppUser : BaseEntity, IChurchScoped, IAuditedEntity
     }
 
     public void PasswordChanged() => MustChangePassword = false;
+
+    public void RevokeSessions(DateTimeOffset at, Guid actorId)
+    {
+        SessionsRevokedAt = at;
+        UpdatedBy = actorId;
+    }
 
     public void Deactivate(DateTimeOffset at, Guid actorId)
     {

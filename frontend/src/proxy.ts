@@ -46,6 +46,13 @@ export async function proxy(request: NextRequest) {
     if (refreshToken) clearSession(res.cookies); // a refresh token that no longer works is dead weight
     return res;
   }
+  // The API refused a token that hasn't expired (deactivated, or signed out by an admin): drop it, or /login and / would
+  // keep redirecting to each other.
+  if (path === "/login" && request.nextUrl.searchParams.has("ended")) {
+    const res = withSecurityHeaders(request);
+    clearSession(res.cookies);
+    return res;
+  }
   if (signedIn && path === "/login") {
     const res = NextResponse.redirect(new URL("/", request.url));
     if (refreshed) writeSession(res.cookies, refreshed);

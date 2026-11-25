@@ -54,5 +54,28 @@ public sealed class SupabaseAuthAdmin(HttpClient http, ILogger<SupabaseAuthAdmin
             logger.LogError("Supabase delete user failed with {Status}", (int)res.StatusCode);
     }
 
+    public async Task<int> RemoveMfaFactorsAsync(Guid authUserId, CancellationToken ct)
+    {
+        using var res = await http.GetAsync($"auth/v1/admin/users/{authUserId}/factors", ct);
+        if (res.StatusCode == HttpStatusCode.NotFound) return 0;
+        if (!res.IsSuccessStatusCode)
+        {
+            logger.LogError("Supabase list factors failed with {Status}", (int)res.StatusCode);
+            res.EnsureSuccessStatusCode();
+        }
+        var factors = await res.Content.ReadFromJsonAsync<List<Factor>>(ct) ?? [];
+        foreach (var f in factors)
+        {
+            using var del = await http.DeleteAsync($"auth/v1/admin/users/{authUserId}/factors/{f.Id}", ct);
+            if (!del.IsSuccessStatusCode && del.StatusCode != HttpStatusCode.NotFound)
+            {
+                logger.LogError("Supabase delete factor failed with {Status}", (int)del.StatusCode);
+                del.EnsureSuccessStatusCode();
+            }
+        }
+        return factors.Count;
+    }
+
     private sealed record InvitedUser(Guid Id);
+    private sealed record Factor(Guid Id);
 }

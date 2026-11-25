@@ -360,3 +360,113 @@ public sealed class SetMemberActiveHandler(IAppDbContext db, ICurrentUser curren
         return await Members.ToDto(db, u, groupId, ct);
     }
 }
+
+// ---------------------------------------------------------------- Reset MFA (§6.10, admins)
+
+/// <summary>For someone who lost their authenticator: removes their factors so the next sign-in sets up a new code.</summary>
+public sealed record ResetMemberMfa(Guid Id) : IRequest<MfaResetResult>, IAuditedRequest
+{
+    public string AuditAction => "member.mfa_reset";
+}
+
+public sealed record MfaResetResult(int Removed);
+
+public sealed class ResetMemberMfaHandler(IAppDbContext db, ICurrentUser current, IAuthAdmin authAdmin, AuditScope audit, TimeProvider clock)
+    : IRequestHandler<ResetMemberMfa, MfaResetResult>
+{
+    public async Task<MfaResetResult> Handle(ResetMemberMfa r, CancellationToken ct)
+    {
+        var me = current.Info;
+        if (!me.IsAdmin()) throw new ForbiddenException();
+        var (u, _) = await Members.LoadManageable(db, me, r.Id, tracking: false, ct); // only a super admin resets an admin
+        if (u.AuthUserId is not { } authUserId) throw new NotFoundException();
+
+        // Supabase is outside the transaction; removing factors twice is harmless, so a failed save can simply be retried.
+        var removed = await authAdmin.RemoveMfaFactorsAsync(authUserId, ct);
+        if (removed > 0)
+            // Tell the person, in case it wasn't them who asked (§6.7 outbox: in-app and email).
+            db.Notifications.Add(Notification.Create(me.ChurchId, u.Id, "mfa.reset", "{}", ["in_app", "email"], clock.GetUtcNow()));
+        audit.Describe("app_user", u.Id, null, new { factorsRemoved = removed });
+        return new MfaResetResult(removed);
+    }
+}
+
+// ---------------------------------------------------------------- Search (§6.10, admins)
+
+public sealed record MemberHit(Guid Id, string DisplayName, string Email, string? GroupName, MemberStatus Status, UserRole Role, bool IsActive);
+
+/// <summary>Name, nickname or email contains the text, or the mobile number matches exactly (it's encrypted, so by blind index).</summary>
+public sealed record SearchMembers(string Q) : IRequest<IReadOnlyList<MemberHit>>
+{
+    public const int Limit = 20;
+}
+
+public sealed class SearchMembersValidator : AbstractValidator<SearchMembers>
+{
+    public SearchMembersValidator() =>
+        RuleFor(x => x.Q).Must(q => q.Trim().Length is >= 2 and <= 100).WithMessage("Type at least 2 characters.").OverridePropertyName("q");
+}
+
+public sealed class SearchMembersHandler(IAppDbContext db, ICurrentUser current, IBlindIndexer index)
+    : IRequestHandler<SearchMembers, IReadOnlyList<MemberHit>>
+{
+    public async Task<IReadOnlyList<MemberHit>> Handle(SearchMembers r, CancellationToken ct)
+    {
+        var me = current.Info;
+        if (!me.IsAdmin()) throw new ForbiddenException();
+        var q = r.Q.Trim();
+        var like = "%" + q.ToLowerInvariant().Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
+        var mobileIdx = q.Count(char.IsAsciiDigit) >= 7 && System.Text.RegularExpressions.Regex.IsMatch(q, Members.MobilePattern) ? index.Mobile(q) : null;
+        var superAdmin = me.Role == UserRole.SUPER_ADMIN;
+
+        // shortcut: LIKE on lower() scans app_users, fine for one church of ~1,000; add a pg_trgm index if churches grow past ~50k people.
+        var rows = await db.Users.AsNoTracking()
+            .Where(u => u.Id != me.AppUserId && (superAdmin || (u.Role != UserRole.ADMIN && u.Role != UserRole.SUPER_ADMIN)))
+#pragma warning disable CA1304, CA1311 // ToLower() runs as SQL lower(), not in .NET; ToLowerInvariant doesn't translate
+            .Where(u => EF.Functions.Like((u.FirstName + " " + u.LastName).ToLower(), like, @"\")
+                || EF.Functions.Like((u.Nickname ?? "").ToLower(), like, @"\") || EF.Functions.Like(u.Email.ToLower(), like, @"\")
+                || (mobileIdx != null && EF.Property<string?>(u, BlindIndexColumns.Mobile) == mobileIdx))
+#pragma warning restore CA1304, CA1311
+            .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
+            .Take(SearchMembers.Limit)
+            .Select(u => new
+            {
+                u.Id, u.FirstName, u.LastName, u.Nickname, u.Email, u.Status, u.Role, u.DeactivatedAt,
+                Group = db.GroupMemberships.Where(m => m.UserId == u.Id && m.LeftOn == null)
+                    .Join(db.Groups, m => m.GroupId, g => g.Id, (m, g) => g.Name).FirstOrDefault(),
+            })
+            .ToListAsync(ct);
+
+        return rows.Select(u => new MemberHit(u.Id, string.IsNullOrWhiteSpace(u.Nickname) ? $"{u.FirstName} {u.LastName}" : u.Nickname,
+            u.Email, u.Group, u.Status, u.Role, u.DeactivatedAt == null)).ToList();
+    }
+}
+
+// ---------------------------------------------------------------- Force logout (§6.10, admins)
+
+/// <summary>Signs the person out on every device: their sessions end and tokens already issued are refused.</summary>
+public sealed record ForceLogout(Guid Id) : IRequest<ForceLogoutResult>, IAuditedRequest
+{
+    public string AuditAction => "member.force_logout";
+}
+
+public sealed record ForceLogoutResult(int Sessions);
+
+public sealed class ForceLogoutHandler(IAppDbContext db, ICurrentUser current, AuditScope audit, UnitOfWork uow, IUserDirectory users, TimeProvider clock)
+    : IRequestHandler<ForceLogout, ForceLogoutResult>
+{
+    public async Task<ForceLogoutResult> Handle(ForceLogout r, CancellationToken ct)
+    {
+        var me = current.Info;
+        if (!me.IsAdmin()) throw new ForbiddenException();
+        var (u, _) = await Members.LoadManageable(db, me, r.Id, tracking: true, ct); // only a super admin signs out an admin
+        if (u.AuthUserId is not { } authUserId) throw new NotFoundException();
+
+        u.RevokeSessions(clock.GetUtcNow(), me.AppUserId);
+        var sessions = await db.RevokeAuthSessionsAsync(authUserId, ct); // same transaction as the stamp
+        Members.EvictCache(uow, users, authUserId); // the stamp is read from the user cache
+
+        audit.Describe("app_user", u.Id, null, new { sessionsEnded = sessions });
+        return new ForceLogoutResult(sessions);
+    }
+}

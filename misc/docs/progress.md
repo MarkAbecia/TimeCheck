@@ -339,7 +339,7 @@ Not done in this phase (needs a decision or a later phase):
 - `/hallmark audit` re-run (`audits/2026-11-25-hallmark-phase11.md`): 3 small Floor fixes for a polish pass (`transition-all` on Button, a literal shadow on the auth card, tracked caps on the unused dropdown shortcut), all three fixed. Also fixed after it: the report filters fold under "Change filters" on phones (always open from 640 px), and three toasts that repeated what the screen shows are gone (review saved, group archived, deactivate/reactivate; "Devotion sent" stays, since the leader receiving it isn't visible). Still open: the caps labels' letter spacing, kept as a conflict with the direction.
 - Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
 - No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
-- The rest of §6.10 isn't built: MFA reset, member search, the settings screen (retention, devotion windows, age brackets, AI thresholds) and the audit log viewer UI (the API exists).
+- The rest of §6.10 isn't built: the settings screen (retention, devotion windows, age brackets, AI thresholds). MFA reset, member search, force logout and the audit log viewer were added on 2026-11-25 (see Phase 12).
 
 ## Phase 12 — Deploy (in progress, 2026-11-25)
 
@@ -365,6 +365,39 @@ Checked:
   (about 48 KB of Base UI and Floating UI off every page), and the login and forgot-password forms check their fields without
   `zod` in the browser (43 KB), the login form also without react-hook-form (12 KB). Now 186–198 KB on all five measured
   routes, CLS 0, accessibility 98–100, LCP under 1 s in the final run (it varies between runs in Lighthouse's simulation).
+
+Added while waiting on accounts (§6.10, 2026-11-25):
+- **Member search** (admins): a search box on Members (`GET /members?q=`), a plain GET form with no client JS. Matches part of a
+  name, nickname or email in any case, or a whole mobile number in either format (by blind index, since mobiles are encrypted).
+  Up to 20 results with group and status; deactivated people included, erased ones not. Like the member record, admins don't
+  see other admins (a super admin does) or themselves. Scans `app_users` with `lower() like`, fine at one church's size.
+- **MFA reset** (admins; an admin's only by a super admin): "Reset sign-in code" on the member's Account card removes their
+  Supabase factors through the admin API, so their next sign-in sets up a new code. They get an in-app and email notice
+  (`mfa.reset`) in case they didn't ask, and it's audited with the number of factors removed. It doesn't sign them out;
+  that's "Sign out everywhere".
+- **Force logout** (admins; an admin's only by a super admin): "Sign out everywhere" on the Account card. Supabase Auth has no
+  admin endpoint for this, so migration `20261125000300_force_logout.sql` adds `public.revoke_auth_sessions` (security
+  definer, deletes the person's `auth.sessions`; refresh tokens cascade) and `app_users.sessions_revoked_at`. The API refuses
+  any access token issued before that stamp, so tokens already handed out stop working within the 60 s user cache rather
+  than at expiry. Audited with the number of sessions ended.
+- **Audit log viewer** (super admins, `/audit`): newest first, 50 a page with Older/Newest links (keyset cursor). Filter by
+  action (a list of the actions this church's log contains, `GET /admin/audit-actions`) and a date range in church time;
+  each entry links its actor ("By …") and the person it's about ("About …") to filter by them, so one person's history is
+  one click. Before/after values open under "What changed". The API gained `entityId` filtering (indexed) and names for the
+  actor and the person. Server-rendered with a GET form: no client JS. On phones the filters fold like the report filters.
+- **Fixed on the way:** when the API refused a token that hadn't expired (a deactivated person, and now a signed-out one),
+  pages redirected to `/login`, which the proxy sent back to `/` because the cookie still looked valid: a redirect loop.
+  Those redirects now go to `/login?ended=1`, where the proxy clears the cookies. Side effect: a link to that URL signs
+  someone out of TimeCheck, which is harmless.
+- Checked: 7 integration tests (reach rules, mobile in both formats, `%` matched literally, notice and audit, old tokens
+  refused and new ones accepted after a logout); e2e: the admin flow searches for a member and resets a real factor through
+  local Supabase, a second flow signs a member out while she's signed in elsewhere, then she lands on sign-in and signs
+  in again, and a third reads the audit log as a super admin (filter by action, follow a person, drop that filter). That
+  one promotes the seeded test admin for the duration, because the seeded super admin may carry a real authenticator.
+- **Local environment, not the app:** Docker Desktop's port forwarding intermittently stalls connections to the Supabase
+  containers (curl to the gateway hung 2 of 6 times while the gateway logged only the 4 that arrived), and
+  `supabase_vector_timecheck` restarts every few seconds. That made e2e runs flaky today (a hung registration, 502s on
+  sign-in). A Docker Desktop restart is the likely fix.
 
 Not done:
 - Anything that needs the owner: Render and Supabase accounts, secrets, an email provider (ADR 0007), the domain, the first

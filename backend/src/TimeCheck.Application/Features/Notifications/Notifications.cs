@@ -57,6 +57,8 @@ public static class NotificationCatalog
         return type switch
         {
             "role.changed" => new("Your role changed", $"You're now {Role(S("to"))} in TimeCheck.", "/"),
+            "mfa.reset" => new("Your sign-in code was reset",
+                "Set up a new one the next time you sign in. If you didn't ask for this, tell your church admin.", "/profile"),
             "event.scheduled" => new($"New: {S("title")}", $"{When()}.", eventUrl),
             "event.changed" => new($"Changed: {S("title")}", $"Now {When()}.", eventUrl),
             "event.cancelled" => new($"Cancelled: {S("title")}", $"{When()} is off.", eventUrl),

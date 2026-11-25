@@ -5,6 +5,17 @@ export type Gender = "MALE" | "FEMALE";
 
 export const MEMBER_STATUSES: MemberStatus[] = ["NEW_MEMBER", "DISCIPLE", "INCONSISTENT", "INACTIVE"];
 
+/** A search result (§6.10, admins). */
+export type MemberHit = {
+  id: string;
+  displayName: string;
+  email: string;
+  groupName: string | null;
+  status: Member["status"];
+  role: Member["role"];
+  isActive: boolean;
+};
+
 export type Member = {
   id: string;
   firstName: string;

@@ -89,6 +89,13 @@ public static class AuthSetup
         var directory = ctx.HttpContext.RequestServices.GetRequiredService<IUserDirectory>();
         var info = await directory.FindByAuthUserIdAsync(authUserId, ctx.HttpContext.RequestAborted);
         if (info is null || !info.IsActive) { ctx.Fail("Unknown or deactivated user."); return; }
+        // Force logout (§6.10): tokens issued before it are refused, even though their signature and expiry are still good.
+        if (info.SessionsRevokedAt is { } revoked
+            && (!long.TryParse(ctx.Principal!.FindFirstValue("iat"), out var iat) || iat < revoked.ToUnixTimeSeconds()))
+        {
+            ctx.Fail("Signed out by an admin.");
+            return;
+        }
 
         ctx.HttpContext.Items[AuthItems.CurrentUser] = info;
         var identity = (ClaimsIdentity)ctx.Principal!.Identity!;

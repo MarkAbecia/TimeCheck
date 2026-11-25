@@ -12,15 +12,19 @@ import { Label } from "@/components/ui/label";
 import { send, type Problem } from "@/lib/api-client";
 import type { Member } from "@/lib/types";
 
-/** Admins only (§6.10, §8.4): deactivate or reactivate, download the person's data, and erase a deactivated person. */
+/** Admins only (§6.10, §8.4): deactivate or reactivate, sign out everywhere, reset the sign-in code, download the person's data, and erase a deactivated person. */
 export function MemberAccount({ member }: { member: Member }) {
   const t = useTranslations("members.account");
   const router = useRouter();
   const id = useId();
-  const [pending, setPending] = useState<"active" | "export" | "erase" | null>(null);
+  const [pending, setPending] = useState<"active" | "logout" | "mfa" | "export" | "erase" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [typed, setTyped] = useState("");
+  const [confirmMfa, setConfirmMfa] = useState(false);
+  const [mfaResult, setMfaResult] = useState<string | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [loggedOut, setLoggedOut] = useState(false);
 
   const problem = (p: Problem) =>
     p.status === 0 ? t("offline") : p.status === 403 ? t("needsMfa") : p.status === 422 && p.title ? p.title : t("unexpected");
@@ -33,6 +37,26 @@ export function MemberAccount({ member }: { member: Member }) {
     setConfirmDeactivate(false);
     if (!r.ok) return setError(problem(r.problem));
     router.refresh(); // the status line above flips, so no toast
+  }
+
+  async function forceLogout() {
+    setPending("logout");
+    setError(null);
+    const r = await send<{ sessions: number }>("POST", `/members/${member.id}/force-logout`);
+    setPending(null);
+    setConfirmLogout(false);
+    if (!r.ok) return setError(problem(r.problem));
+    setLoggedOut(true);
+  }
+
+  async function resetMfa() {
+    setPending("mfa");
+    setError(null);
+    const r = await send<{ removed: number }>("POST", `/members/${member.id}/mfa-reset`);
+    setPending(null);
+    setConfirmMfa(false);
+    if (!r.ok) return setError(problem(r.problem));
+    setMfaResult(r.data.removed > 0 ? t("mfaDone") : t("mfaNone"));
   }
 
   async function exportData() {
@@ -86,6 +110,60 @@ export function MemberAccount({ member }: { member: Member }) {
           <Button type="button" variant="outline" className="w-fit" disabled={pending !== null} onClick={() => setActive(true)}>
             {pending === "active" ? t("working") : t("reactivate")}
           </Button>
+        )}
+      </div>
+
+      {member.isActive && (
+        <div className="grid gap-2 border-t border-border pt-4">
+          <p className="text-sm text-muted-foreground">{t("logoutLead")}</p>
+          {loggedOut && (
+            <p role="status" className="text-sm">
+              {t("logoutDone")}
+            </p>
+          )}
+          {!confirmLogout ? (
+            <Button type="button" variant="outline" className="w-fit" disabled={pending !== null} onClick={() => setConfirmLogout(true)}>
+              {t("logout")}
+            </Button>
+          ) : (
+            <div className="grid gap-2 rounded-lg border border-border bg-muted/40 p-3">
+              <p className="text-sm">{t("logoutConfirm", { name: member.displayName })}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="destructive" disabled={pending !== null} onClick={forceLogout}>
+                  {pending === "logout" ? t("working") : t("logoutYes")}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setConfirmLogout(false)}>
+                  {t("cancel")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-2 border-t border-border pt-4">
+        <p className="text-sm text-muted-foreground">{t("mfaLead")}</p>
+        {mfaResult && (
+          <p role="status" className="text-sm">
+            {mfaResult}
+          </p>
+        )}
+        {!confirmMfa ? (
+          <Button type="button" variant="outline" className="w-fit" disabled={pending !== null} onClick={() => setConfirmMfa(true)}>
+            {t("mfaReset")}
+          </Button>
+        ) : (
+          <div className="grid gap-2 rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm">{t("mfaConfirm", { name: member.displayName })}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="destructive" disabled={pending !== null} onClick={resetMfa}>
+                {pending === "mfa" ? t("working") : t("mfaYes")}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setConfirmMfa(false)}>
+                {t("cancel")}
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
