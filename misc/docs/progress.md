@@ -336,7 +336,7 @@ Checked:
 
 Not done in this phase (needs a decision or a later phase):
 - The k6 load test hasn't been run: k6 isn't installed here, and it needs a stack seeded at scale. The earlier SQL load test (Phase 10) is the only performance evidence.
-- `/hallmark audit` wasn't re-run (last run Phase 3).
+- `/hallmark audit` re-run (`audits/2026-11-25-hallmark-phase11.md`): 3 small Floor fixes for a polish pass (`transition-all` on Button, a literal shadow on the auth card, tracked caps on the unused dropdown shortcut), all three fixed. Still open: the caps labels kept as a conflict with the direction, four redundant success toasts, and the report filters filling a phone's first screen.
 - Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
 - No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
 - The rest of §6.10 isn't built: MFA reset, member search, the settings screen (retention, devotion windows, age brackets, AI thresholds) and the audit log viewer UI (the API exists).
