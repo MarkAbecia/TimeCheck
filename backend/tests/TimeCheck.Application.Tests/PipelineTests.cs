@@ -30,6 +30,8 @@ public class PipelineTests
         }
     }
 
+    private static readonly IReportCache Reports = Substitute.For<IReportCache>();
+
     private static (Dispatcher Dispatcher, IAppDbContext Db, DbSet<AuditLog> Audit) Build()
     {
         var db = Substitute.For<IAppDbContext>();
@@ -44,7 +46,7 @@ public class PipelineTests
         bidx.Ip(Arg.Any<string>()).Returns("hashed-ip");
 
         var services = new ServiceCollection().AddApplication();
-        services.AddSingleton(db).AddSingleton(current).AddSingleton(request).AddSingleton(bidx);
+        services.AddSingleton(db).AddSingleton(current).AddSingleton(request).AddSingleton(bidx).AddSingleton(Reports);
         services.AddScoped<IRequestHandler<Ping, string>, PingHandler>();
         var sp = services.BuildServiceProvider().CreateScope().ServiceProvider;
         return (sp.GetRequiredService<Dispatcher>(), db, auditSet);
@@ -62,6 +64,7 @@ public class PipelineTests
             a.Action == "test.ping" && a.ActorId == Leader.AppUserId && a.ChurchId == Leader.ChurchId &&
             a.IpHash == "hashed-ip" && a.CorrelationId == "corr-1" && a.After!.Contains("hello")));
         await db.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await Reports.Received().InvalidateAsync(Leader.ChurchId); // the church's cached reports are stale now
     }
 
     [Fact]

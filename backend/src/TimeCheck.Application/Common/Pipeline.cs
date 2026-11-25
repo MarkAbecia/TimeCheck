@@ -54,7 +54,7 @@ public sealed class UnitOfWork
 /// <summary>validate → handle → audit → save (one transaction via SaveChanges). Handlers never call SaveChanges.</summary>
 public sealed class Dispatcher(
     IServiceProvider services, IAppDbContext db, ICurrentUser currentUser, IRequestContext requestContext,
-    IBlindIndexer blindIndexer, AuditScope auditScope, UnitOfWork unitOfWork)
+    IBlindIndexer blindIndexer, AuditScope auditScope, UnitOfWork unitOfWork, IReportCache reportCache)
 {
     // Enums as their names, so audit rows read "PRESENT" rather than 0.
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
@@ -78,6 +78,8 @@ public sealed class Dispatcher(
             response = await (Task<TResult>)handlerType.GetMethod("Handle")!.Invoke(handler, [request, ct])!;
             WriteAudit(request);
             await db.SaveChangesAsync(ct); // no-op for queries
+            // Every write is audited, so this is "the church's data changed": cached reports are stale.
+            if (request is IAuditedRequest) unitOfWork.AfterCommit(() => reportCache.InvalidateAsync(currentUser.Info.ChurchId));
         }
         catch
         {
@@ -131,6 +133,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<Features.Invites.InviteReminders>();
         services.AddScoped<Features.Notifications.NotificationDelivery>();
         services.AddScoped<Features.Notifications.AttendanceReminders>();
+        services.AddScoped<Features.Reports.ReportBuilder>();
+        services.AddScoped<Features.Reports.ReportExports>();
         return services;
     }
 }

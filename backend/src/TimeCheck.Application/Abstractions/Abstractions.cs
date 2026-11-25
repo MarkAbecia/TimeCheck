@@ -90,12 +90,23 @@ public interface IAppDbContext
     DbSet<MemberStatusChange> MemberStatusChanges { get; }
     DbSet<Notification> Notifications { get; }
     DbSet<ReportJob> ReportJobs { get; }
+    DbSet<AttendanceFact> AttendanceFacts { get; }
     DbSet<AuditLog> AuditLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
     /// <summary>Forgets tracked changes after a failed save, so a long-running job can carry on with the next item.</summary>
     void DiscardChanges();
+}
+
+/// <summary>
+/// Report results per church (§9 caching): kept until the church's next audited write, or 10 minutes. Callers asking for the
+/// same report at once share one build. A cache outage only makes reports slower.
+/// </summary>
+public interface IReportCache
+{
+    Task<byte[]> GetOrCreateAsync(Guid churchId, string key, Func<CancellationToken, Task<byte[]>> build, CancellationToken ct);
+    Task InvalidateAsync(Guid churchId);
 }
 
 /// <summary>Private object storage (Supabase Storage). Clients only ever get short-lived signed URLs (§6.3, §8.3).</summary>

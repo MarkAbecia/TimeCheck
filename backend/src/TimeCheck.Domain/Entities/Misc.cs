@@ -155,4 +155,55 @@ public sealed class ReportJob : BaseEntity, IChurchScoped
     public string? Error { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
     public DateTimeOffset? ExpiresAt { get; private set; }
+
+    /// <summary>Export files are kept this long; the download link never outlives the file (§6.8).</summary>
+    public static readonly TimeSpan Lifetime = TimeSpan.FromHours(24);
+
+    public static ReportJob Queue(Guid churchId, Guid requestedBy, string type, string paramsJson) => new()
+    {
+        ChurchId = churchId,
+        RequestedBy = requestedBy,
+        Type = type,
+        Params = paramsJson,
+    };
+
+    public void Start() => Status = ReportJobStatus.RUNNING;
+
+    public void Complete(string filePath, DateTimeOffset now)
+    {
+        Status = ReportJobStatus.DONE;
+        FilePath = filePath;
+        Error = null;
+        CompletedAt = now;
+        ExpiresAt = now + Lifetime;
+    }
+
+    public void Fail(string error, DateTimeOffset now)
+    {
+        Status = ReportJobStatus.FAILED;
+        Error = error.Length > 500 ? error[..500] : error;
+        CompletedAt = now;
+    }
+
+    public void Expire()
+    {
+        Status = ReportJobStatus.EXPIRED;
+        FilePath = null;
+    }
+}
+
+/// <summary>
+/// One person expected at (or marked at) one started event, with how it went: the attendance_facts view every report counts
+/// from. Read-only.
+/// </summary>
+public sealed class AttendanceFact : IChurchScoped
+{
+    private AttendanceFact() { }
+    public Guid ChurchId { get; private set; }
+    public Guid EventId { get; private set; }
+    public Guid EventTypeId { get; private set; }
+    public DateOnly OccursOn { get; private set; }
+    public Guid UserId { get; private set; }
+    public Guid? GroupId { get; private set; }
+    public AttendanceStatus Status { get; private set; }
 }

@@ -165,3 +165,37 @@ export type NotificationPreferences = {
   pushPublicKey: string | null;
   pushDevices: number;
 };
+
+export type ReportInfo = {
+  type: string;
+  title: string;
+  summary: string;
+  forLeaders: boolean;
+  usesPeriod: boolean;
+  usesEventFilter: boolean;
+};
+export type ReportColumn = { key: string; label: string; kind: "text" | "number" | "percent" | "date" };
+export type ReportCell = string | number | null;
+export type ReportSection = { key: string; title: string; columns: ReportColumn[]; rows: ReportCell[][]; note: string | null };
+export type ReportChart = { title: string; unit: "percent" | "count"; bars: { label: string; value: number }[] };
+export type Report = {
+  type: string;
+  title: string;
+  scope: string[];
+  from: string;
+  to: string;
+  sections: ReportSection[];
+  chart: ReportChart | null;
+  generatedAt: string;
+};
+export type ReportJob = {
+  id: string;
+  type: string;
+  title: string;
+  format: string;
+  status: "QUEUED" | "RUNNING" | "DONE" | "FAILED" | "EXPIRED";
+  scope: string[];
+  createdAt: string;
+  expiresAt: string | null;
+  error: string | null;
+};

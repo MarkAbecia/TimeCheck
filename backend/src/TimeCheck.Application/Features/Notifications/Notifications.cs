@@ -65,6 +65,7 @@ public static class NotificationCatalog
             "invite.reminder" => new("Did your guest come?", $"Mark whether your {Plural(N("guests"), "guest")} came.", "/invites"),
             "devotion.reminder.day" => new("Day devotion", "You haven't sent today's Day devotion yet.", "/devotions"),
             "devotion.reminder.night" => new("Night devotion", "There's still time for tonight's devotion.", "/devotions"),
+            "report.ready" => new($"Ready: {S("title")} ({S("format")})", "Your export is ready to download for 24 hours.", "/reports/exports"),
             "attendance.unmarked" => new($"Not marked yet: {S("title")}",
                 $"{Plural(N("members"), "member")} still unmarked from {When()}.", eventUrl),
             _ => new("TimeCheck", "You have a new notification.", "/"),

@@ -10,6 +10,7 @@ using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
 using TimeCheck.Application.Features.Members;
+using TimeCheck.Application.Features.Reports;
 using TimeCheck.Domain.Enums;
 
 namespace TimeCheck.Api.Endpoints;
@@ -166,6 +167,20 @@ public static class Endpoints
             await d.Send(body, ct);
             return Results.NoContent();
         });
+
+        // Reports (§6.8). Leaders get their group's; the admin-only ones are 403 for them. Exports are rate-limited.
+        var reports = v1.MapGroup("/reports").WithTags("Reports").RequireAuthorization(Policies.Leader);
+        reports.MapGet("", (Dispatcher d, CancellationToken ct) => d.Send(new ListReports(), ct));
+        reports.MapGet("/{type}", (string type, DateOnly? from, DateOnly? to, Guid? groupId, Guid? eventTypeId, EventCategory? category, Dispatcher d, CancellationToken ct) =>
+            d.Send(new RunReport(type, new ReportFilters(from, to, groupId, eventTypeId, category)), ct));
+        reports.MapPost("/{type}/exports", async (string type, ExportReport body, Dispatcher d, CancellationToken ct) =>
+        {
+            var job = await d.Send(body with { Type = type }, ct);
+            return Results.Created($"/api/v1/me/report-jobs/{job.Id}", job);
+        }).WithRateLimit(RateLimits.Exports);
+        var reportJobs = v1.MapGroup("/me/report-jobs").WithTags("Reports").RequireAuthorization(Policies.Leader);
+        reportJobs.MapGet("", (Dispatcher d, CancellationToken ct) => d.Send(new ListMyReportJobs(), ct));
+        reportJobs.MapGet("/{id:guid}/download", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new GetReportDownload(id), ct));
 
         var admin = v1.MapGroup("/admin").WithTags("Admin");
         admin.MapGet("/audit-logs", (Guid? actorId, string? action, string? entityType, DateTimeOffset? from, DateTimeOffset? to,

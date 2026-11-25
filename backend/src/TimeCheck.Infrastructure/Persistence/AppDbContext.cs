@@ -43,6 +43,7 @@ public sealed class AppDbContext(
     public DbSet<MemberStatusChange> MemberStatusChanges => Set<MemberStatusChange>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ReportJob> ReportJobs => Set<ReportJob>();
+    public DbSet<AttendanceFact> AttendanceFacts => Set<AttendanceFact>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
@@ -129,6 +130,7 @@ public sealed class AppDbContext(
             e.Property(x => x.Params).HasColumnType("jsonb");
             Tenant(e);
         });
+        b.Entity<AttendanceFact>(e => { e.ToView("attendance_facts"); e.HasNoKey(); Tenant(e); });
         b.Entity<AuditLog>(e =>
         {
             e.ToTable("audit_logs");

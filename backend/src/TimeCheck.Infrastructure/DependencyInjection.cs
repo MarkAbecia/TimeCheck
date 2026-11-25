@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(RedisConfiguration(config)));
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddSingleton<RedisRateLimiter>();
+        services.AddSingleton<IReportCache, RedisReportCache>();
 
         services.AddHttpClient<IAuthAdmin, SupabaseAuthAdmin>(http =>
         {

@@ -11,13 +11,21 @@ export type Problem = {
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; problem: Problem };
 
 /** Client-side call through the BFF proxy (/api/bff → /api/v1). Never throws. */
-export async function send<T = unknown>(method: "POST" | "PATCH" | "PUT" | "DELETE", path: string, body?: unknown): Promise<ApiResult<T>> {
+export async function send<T = unknown>(
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<ApiResult<T>> {
   if (typeof navigator !== "undefined" && !navigator.onLine) return { ok: false, problem: { status: 0, code: "offline" } };
   try {
     const res = await fetch(`/api/bff${path}`, {
       method,
       // FormData (a devotion photo) sets its own multipart boundary.
-      ...(body instanceof FormData ? { body } : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) }),
+      ...(method === "GET"
+        ? {}
+        : body instanceof FormData
+          ? { body }
+          : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) }),
       credentials: "same-origin",
     });
     if (res.status === 401) {

@@ -293,7 +293,33 @@ Checked:
 - **Playwright:** 131/131 pass. New flow: the member sees the badge, opens a notification (marked read), and saves a category choice; Attendance stays hidden for members. `/notifications` added to the axe run.
 - **Live:** an event change for the seeded leader was delivered as in-app and email; Mailpit showed the right subject, time and links. Real push couldn't be tried here (the browser pane blocks the permission prompt); the stub test covers the sender.
 
+## Phase 10 — Reports (done, 2026-11-25)
+
+Decisions are in ADR 0008: one plain SQL view for attendance, a per-church Redis cache, hand-written export files.
+
+Built:
+- **Database:** view `attendance_facts` (one row per person expected at a started, uncancelled event, with their group that day and their status, `UNMARKED` if nobody marked them) and indexes for reports and export jobs.
+- **API (`/reports`, leaders and up):**
+  - `GET /reports` lists the reports the caller can run. `GET /reports/{type}` runs one with `from`, `to`, `groupId`, `eventTypeId` or `category` (up to 366 days).
+  - Six reports: Attendance, Member, Member Status (leaders get their own groups); Group Monitoring, Cell Status, Leaders & Members (admins only). Each returns tables plus one chart.
+  - Built reports are cached for 10 minutes and dropped after any audited change.
+  - `POST /reports/{type}/exports` makes CSV, XLSX or PDF: in the request up to 2,000 rows, otherwise queued for the Worker, which sends a "report ready" notification. `GET /me/report-jobs` and `/me/report-jobs/{id}/download` (a signed link to a private file, requester only). Files expire after 24 hours. 10 exports per hour.
+- **Worker:** `report-exports`, every minute: builds queued exports as the requester, deletes expired files, fails jobs stuck for 30 minutes.
+- **Frontend:** `/reports` (the list), `/reports/[type]` (filters in the URL, chart as a bar list, tables that become cards on phones, export buttons), `/reports/exports` (your files and their download buttons).
+
+Checked:
+- **Automated:** backend 117/117. New: 5 `ReportsTests` (totals equal an independent raw SQL count, cache until a change, role access, admin reports, inline and queued exports, download links, expiry) and 11 `ReportFilesTests` (CSV formula guard, XLSX structure, PDF cross-reference and page breaks, age brackets, streaks). Frontend typecheck, lint, 49 unit tests and the production build pass.
+- **Load:** 1,000 members and a year of events (rolled back): a year by event type in about 270 ms, one group's year about 620 ms, so nothing is queued just for size of period (AC: under 3 s).
+- **Playwright:** full run 158/162; the 4 failures were in the new report tests and are fixed (the wide report table now scrolls by keyboard, which axe caught at 768 px; the flow lacked the leader session), then all 32 report tests passed. The sign-in setup now waits up to 30 s for Today, since dev mode compiles on demand. New flow: a leader filters Attendance, downloads the CSV and sees it under Your exports. The three report pages are in the axe run.
+- **Live:** as the seeded leader, the Attendance and Member Status reports, the CSV download through the signed link, and the phone layout at 375 px. This found a real bug: the Worker didn't register `ReportBuilder`, so queued exports never ran there (the integration test runs the job inside the API's services). Fixed and checked: the Worker now expires files.
+
 ## Known gaps / next
+- Phase 10:
+  - Report titles, columns and scope lines come from the API in English, not from next-intl.
+  - The PDF has tables only, no chart.
+  - Age brackets come from church settings but have no settings screen.
+  - Merging of identical concurrent builds is per API instance; Worker-only changes (invite purge) show within the 10-minute cache.
+  - No test starts the Worker host itself, which is how the missing registration slipped through.
 - Phase 9:
   - No production email provider (ADR 0007); email is off until the owner chooses one.
   - No manifest icons yet (Phase 11).
@@ -301,7 +327,6 @@ Checked:
   - The delivery claim isn't a row lock; fine with one Worker.
   - The unread badge refreshes on navigation, not live.
   - Attendance reminders go to current group leaders only.
-  - "Report ready" notifications wait for Phase 10.
 - Phase 7:
   - No real detection provider (Q6, ADR 0006), and no OCR, so a photo is scored as an image, not as the text on it.
   - Devotions don't write DEVOTION_DAY/NIGHT attendance rows; reports can count them from `devotions`.
