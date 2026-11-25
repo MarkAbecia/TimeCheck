@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 
 export default function AppError({ retry }: { error: unknown; retry: () => void }) {
-  const t = useTranslations("today");
+  const t = useTranslations("page");
   return (
     <div role="alert">
       <EmptyState

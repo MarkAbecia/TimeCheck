@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { EventPassSkeleton } from "@/components/event-pass";
 
 export default async function Loading() {
-  const t = await getTranslations("today");
+  const t = await getTranslations("page");
   return (
     <div role="status" aria-live="polite">
       <span className="sr-only">{t("loading")}</span>

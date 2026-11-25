@@ -224,6 +224,29 @@
       "DISCIPLE": "Disciple",
       "INCONSISTENT": "Inconsistent",
       "INACTIVE": "Inactive"
+    },
+    "accountTitle": "Account and data",
+    "account": {
+      "activeNow": "Active. They can sign in.",
+      "inactiveNow": "Deactivated. They can't sign in.",
+      "deactivate": "Deactivate",
+      "deactivateConfirm": "{name} won't be able to sign in. You can reactivate them later.",
+      "deactivateYes": "Yes, deactivate",
+      "cancel": "Cancel",
+      "reactivate": "Reactivate",
+      "deactivated": "{name} is deactivated.",
+      "reactivated": "{name} can sign in again.",
+      "exportLead": "Everything TimeCheck holds about this person, as one file. Use it when they ask for a copy of their data.",
+      "export": "Download their data",
+      "eraseTitle": "Erase their data",
+      "eraseLead": "Removes their name, contact details, devotions and sign-in for good. Their attendance stays in reports as “Removed member”. This can't be undone.",
+      "eraseType": "Type {name} to confirm",
+      "erase": "Erase for good",
+      "erased": "Their data is erased.",
+      "working": "Working…",
+      "needsMfa": "You can't make this change. Admin changes need your sign-in code.",
+      "offline": "You're offline. Try again when you're connected.",
+      "unexpected": "Something went wrong. Try again."
     }
   },
   "groups": {
@@ -581,5 +604,11 @@
     "making": "Being made since {time}.",
     "expired": "Expired. Export the report again if you need it.",
     "download": "Download"
+  },
+  "page": {
+    "loading": "Loading",
+    "errorTitle": "This page didn't load",
+    "errorBody": "Check your connection, then try again.",
+    "retry": "Try again"
   }
 }

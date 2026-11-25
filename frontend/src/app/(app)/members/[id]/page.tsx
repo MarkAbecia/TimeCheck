@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ChevronLeft } from "lucide-react";
+import { MemberAccount } from "@/components/members/member-account";
 import { MemberControls } from "@/components/members/member-controls";
 import { MemberForm } from "@/components/members/member-form";
 import { apiGet } from "@/lib/server/api";
@@ -46,6 +47,14 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
         {/* Re-mount after a save so the form shows what the API stored. */}
         <MemberForm key={JSON.stringify(member)} mode="edit" member={member} />
       </section>
+      {isAdmin && (
+        <section aria-labelledby="account" className="grid gap-3">
+          <h2 id="account" className="font-semibold">
+            {t("accountTitle")}
+          </h2>
+          <MemberAccount member={member} />
+        </section>
+      )}
     </div>
   );
 }

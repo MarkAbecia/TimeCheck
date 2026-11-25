@@ -135,6 +135,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<Features.Notifications.AttendanceReminders>();
         services.AddScoped<Features.Reports.ReportBuilder>();
         services.AddScoped<Features.Reports.ReportExports>();
+        services.AddScoped<Features.Privacy.PersonEraser>();
+        services.AddScoped<Features.Privacy.RetentionJob>();
         return services;
     }
 }

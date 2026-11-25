@@ -10,6 +10,7 @@ using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Groups;
 using TimeCheck.Application.Features.Me;
 using TimeCheck.Application.Features.Members;
+using TimeCheck.Application.Features.Privacy;
 using TimeCheck.Application.Features.Reports;
 using TimeCheck.Domain.Enums;
 
@@ -72,6 +73,16 @@ public static class Endpoints
             .RequireAuthorization(Policies.Admin);
         members.MapPost("/{id:guid}/move", (Guid id, MoveMember body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
             .RequireAuthorization(Policies.Admin);
+        members.MapPost("/{id:guid}/active", (Guid id, SetMemberActive body, Dispatcher d, CancellationToken ct) => d.Send(body with { Id = id }, ct))
+            .RequireAuthorization(Policies.Admin);
+        // Data-subject rights (§8.4): one person's data as JSON, and erasure of a deactivated person.
+        members.MapGet("/{id:guid}/data-export", (Guid id, Dispatcher d, CancellationToken ct) => d.Send(new ExportPersonData(id), ct))
+            .RequireAuthorization(Policies.Admin);
+        members.MapPost("/{id:guid}/erase", async (Guid id, Dispatcher d, CancellationToken ct) =>
+        {
+            await d.Send(new ErasePerson(id), ct);
+            return Results.NoContent();
+        }).RequireAuthorization(Policies.Admin);
 
         v1.MapGet("/event-types", (Dispatcher d, CancellationToken ct) => d.Send(new ListEventTypes(), ct)).WithTags("Events");
 

@@ -95,6 +95,9 @@ public interface IAppDbContext
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
+    /// <summary>Retention (§8.4): deletes one church's audit rows older than <paramref name="before"/>; the database refuses anything under a year.</summary>
+    Task<int> PurgeAuditLogsAsync(Guid churchId, DateTimeOffset before, CancellationToken ct);
+
     /// <summary>Forgets tracked changes after a failed save, so a long-running job can carry on with the next item.</summary>
     void DiscardChanges();
 }

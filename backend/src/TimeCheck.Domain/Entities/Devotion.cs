@@ -34,6 +34,14 @@ public sealed class Devotion : BaseEntity, IChurchScoped
         return d;
     }
 
+    /// <summary>Erasure (§8.4): the content goes, the row stays so the day still counts as done.</summary>
+    public void Redact()
+    {
+        TextContent = "";
+        ImagePath = null;
+        ReviewNote = null;
+    }
+
     /// <summary>A second upload in the same slot edits the first (§6.3) and re-runs detection if content changed.</summary>
     public void Replace(string? text, string? imagePath, string contentHash, DateTimeOffset now)
     {

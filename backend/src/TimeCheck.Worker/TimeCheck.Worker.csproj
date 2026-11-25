@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Same log masking as the API (§8.4); the Worker doesn't reference the API project. -->
+    <Compile Include="..\TimeCheck.Api\Infrastructure\PiiMaskingPolicy.cs" Link="PiiMaskingPolicy.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TimeCheck.Infrastructure\TimeCheck.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

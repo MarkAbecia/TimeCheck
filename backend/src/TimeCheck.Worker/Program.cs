@@ -5,6 +5,7 @@ using Serilog.Formatting.Compact;
 using TimeCheck.Application.Features.Devotions;
 using TimeCheck.Application.Features.Invites;
 using TimeCheck.Application.Features.Notifications;
+using TimeCheck.Application.Features.Privacy;
 using TimeCheck.Application.Features.Events;
 using TimeCheck.Application.Features.Reports;
 using TimeCheck.Infrastructure;
@@ -15,6 +16,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddSerilog((_, lc) => lc
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
+    .Destructure.With<TimeCheck.Api.Infrastructure.PiiMaskingPolicy>()
     .WriteTo.Console(new RenderedCompactJsonFormatter()));
 
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -28,6 +30,8 @@ builder.Services.AddScoped<NotificationDelivery>();
 builder.Services.AddScoped<AttendanceReminders>();
 builder.Services.AddScoped<ReportBuilder>();
 builder.Services.AddScoped<ReportExports>();
+builder.Services.AddScoped<PersonEraser>();
+builder.Services.AddScoped<RetentionJob>();
 
 // Hangfire needs a session-mode (or direct) connection, not the transaction-mode pooler.
 var hangfireConnection = builder.Configuration.GetConnectionString("Hangfire")
@@ -52,6 +56,9 @@ jobs.AddOrUpdate<DevotionReminders>("devotion-reminders", r => r.RunAsync(Cancel
 // Invites (§6.5): "did your guest come?" hourly, and unconverted guests erased after their purge date, nightly.
 jobs.AddOrUpdate<InviteReminders>("invite-reminders", r => r.RunAsync(CancellationToken.None), Cron.Hourly());
 jobs.AddOrUpdate<InvitePurge>("purge-invites", p => p.RunAsync(CancellationToken.None), "30 2 * * *",
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila") });
+// Retention (§8.4): long-deactivated people erased, old audit rows removed, per church settings.
+jobs.AddOrUpdate<RetentionJob>("retention", r => r.RunAsync(CancellationToken.None), "45 2 * * *",
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila") });
 // Notifications (§6.7): the outbox every minute; "not marked yet" to leaders hourly.
 jobs.AddOrUpdate<NotificationDelivery>("deliver-notifications", d => d.RunAsync(CancellationToken.None), Cron.Minutely());

@@ -313,6 +313,34 @@ Checked:
 - **Playwright:** full run 158/162; the 4 failures were in the new report tests and are fixed (the wide report table now scrolls by keyboard, which axe caught at 768 px; the flow lacked the leader session), then all 32 report tests passed. The sign-in setup now waits up to 30 s for Today, since dev mode compiles on demand. New flow: a leader filters Attendance, downloads the CSV and sees it under Your exports. The three report pages are in the axe run.
 - **Live:** as the seeded leader, the Attendance and Member Status reports, the CSV download through the signed link, and the phone layout at 375 px. This found a real bug: the Worker didn't register `ReportBuilder`, so queued exports never ran there (the integration test runs the job inside the API's services). Fixed and checked: the Worker now expires files.
 
+## Phase 11 — Hardening (in progress, 2026-11-25)
+
+Decisions: ADR 0009 (erasure keeps the row and attendance under "Removed member"; retention from church settings; audit rows purged only through a database function that keeps a year).
+
+Built:
+- **Data-subject rights (§8.4), admins only, audited:**
+  - `GET /members/{id}/data-export`: everything held about one person as JSON (profile decrypted, consent, groups, attendance, devotions, invites made, role and status changes, notifications).
+  - `POST /members/{id}/active`: deactivate or reactivate (§6.10). A deactivated person can't sign in within a minute. Someone still leading a group can't be deactivated.
+  - `POST /members/{id}/erase`: only after deactivation. Removes names, contact details, address, guardian details, devotion content and photos, notifications, push subscriptions, their exports and their sign-in account. Attendance and history stay; gender and birth year are kept for aggregates.
+  - Member page → "Account and data" (admins): deactivate with a confirm step, reactivate, download their data, and erase after typing the person's name.
+- **Retention (§8.4):** Worker job `retention` nightly at 02:45 Manila: erases people deactivated longer than `retention.deactivatedUserYears` (default 3) and deletes audit rows older than `retention.auditLogDays` (default 400, never under 365) via `purge_audit_logs` (migration `20261125000200_privacy.sql`). The app role still can't delete audit rows directly.
+- **Logs:** the Worker now uses the same PII masking policy as the API.
+- **Docs:** `security/threat-model.md` (STRIDE per trust boundary, with status), `security/data-inventory.md`, `security/incident-response.md` (NPC 72-hour rule), runbooks `deploy-and-rollback.md`, `rotate-secrets.md`, `restore-backup.md`. k6 script `misc/scripts/load/sunday-peak.js` (300 VUs, p95 < 300 ms on core endpoints).
+- **Design audit:** `/impeccable audit` scored 17/20 (`audits/2026-11-25-impeccable-phase11.md`). Fixed from it: small buttons are now 44 px tall on touch screens (they were 36 px in 15 places), and the shared loading and error screens no longer say "today's events" on every page.
+- **Phase 10 fixes found here:** the Worker didn't register `ReportBuilder` (queued exports never ran); the wide report table wasn't keyboard-scrollable at 768 px.
+
+Checked:
+- **Automated:** backend 125/125 (8 new `PrivacyTests`: export and its audit row, leader refused, erase needs deactivation then keeps attendance and removes PII and the sign-in, the audit row has no personal details, a leading leader can't be deactivated, retention erases only past the cutoff and keeps rows under 400 days, the database refuses a purge under a year, settings floors). Frontend typecheck, lint and 52 unit tests (3 new for the Account and data section: confirm before deactivating, erase only after the exact name, API reasons shown).
+- **Playwright:** 160/162 on the full run; the devotion and invite flows timed out while dev mode compiled the changed pages and passed on rerun. One earlier run failed at sign-in on a database connection timeout (Docker port forwarding), not the code.
+- **Not checked live:** the admin "Account and data" section, because admins need an MFA code at sign-in and e2e has no TOTP helper yet; the component tests and API integration tests cover it.
+
+Not done in this phase (needs a decision or a later phase):
+- The k6 load test hasn't been run: k6 isn't installed here, and it needs a stack seeded at scale. The earlier SQL load test (Phase 10) is the only performance evidence.
+- `/hallmark audit` wasn't re-run (last run Phase 3).
+- Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
+- No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
+- The rest of §6.10 isn't built: MFA reset, member search, the settings screen (retention, devotion windows, age brackets, AI thresholds) and the audit log viewer UI (the API exists).
+
 ## Known gaps / next
 - Phase 10:
   - Report titles, columns and scope lines come from the API in English, not from next-intl.

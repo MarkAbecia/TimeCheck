@@ -179,5 +179,30 @@ public sealed class AppUser : BaseEntity, IChurchScoped, IAuditedEntity
         UpdatedBy = actorId;
     }
 
+    public const string ErasedFirstName = "Removed";
+    public const string ErasedLastName = "member";
+
+    /// <summary>
+    /// Data-subject erasure (§8.4): personal details go, the row stays so attendance counts and history still add up.
+    /// Only the birth year and gender are kept, for age and gender aggregates. Only a deactivated person can be erased.
+    /// </summary>
+    public void Erase(DateTimeOffset at, Guid? actorId)
+    {
+        if (DeletedAt is not null) throw new DomainException("member.already_erased", "This person has already been erased.");
+        if (DeactivatedAt is null) throw new DomainException("member.erase_active", "Deactivate them first, then erase their data.");
+        FirstName = ErasedFirstName;
+        LastName = ErasedLastName;
+        Nickname = GradeLevel = Mobile = Address = PhotoPath = GuardianName = GuardianContact = null;
+        GuardianConsentAt = null;
+        IsMinor = false;
+        Birthdate = new DateOnly(Birthdate.Year, 1, 1);
+        Email = $"erased-{Id:N}@erased.invalid";
+        Settings = "{}";
+        AuthUserId = null;
+        Role = UserRole.MEMBER;
+        DeletedAt = at;
+        UpdatedBy = actorId;
+    }
+
     private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 }

@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using TimeCheck.Application.Abstractions;
 using TimeCheck.Application.Common;
+using TimeCheck.Domain.Common;
 using TimeCheck.Domain.Entities;
 using TimeCheck.Domain.Enums;
 
@@ -326,5 +327,36 @@ public sealed class MoveMemberHandler(IAppDbContext db, ICurrentUser current, Au
 
         audit.Describe("app_user", u.Id, new { groupId = fromGroup }, new { groupId = r.GroupId });
         return await Members.ToDto(db, u, r.GroupId, ct);
+    }
+}
+
+// ---------------------------------------------------------------- Deactivate / reactivate (§6.10, admins)
+
+/// <summary>Soft delete: a deactivated person can't sign in (within a minute, the user cache) and drops off rosters and reminders.</summary>
+public sealed record SetMemberActive(Guid Id, bool Active) : IRequest<MemberDto>, IAuditedRequest
+{
+    public string AuditAction => Active ? "member.reactivate" : "member.deactivate";
+}
+
+public sealed class SetMemberActiveHandler(IAppDbContext db, ICurrentUser current, AuditScope audit, UnitOfWork uow, IUserDirectory users, TimeProvider clock)
+    : IRequestHandler<SetMemberActive, MemberDto>
+{
+    public async Task<MemberDto> Handle(SetMemberActive r, CancellationToken ct)
+    {
+        var me = current.Info;
+        if (!me.IsAdmin()) throw new ForbiddenException();
+        var (u, groupId) = await Members.LoadManageable(db, me, r.Id, tracking: true, ct);
+        if (u.DeletedAt is not null) throw new NotFoundException();
+        var wasActive = u.IsActive;
+        if (r.Active) u.Reactivate(me.AppUserId);
+        else
+        {
+            var led = await db.Groups.Where(g => g.LeaderId == u.Id && g.ArchivedAt == null).Select(g => g.Name).FirstOrDefaultAsync(ct);
+            if (led is not null) throw new DomainException("member.leads_group", $"They lead {led}. Choose another leader for it first.");
+            u.Deactivate(clock.GetUtcNow(), me.AppUserId);
+        }
+        Members.EvictCache(uow, users, u.AuthUserId);
+        audit.Describe("app_user", u.Id, new { active = wasActive }, new { active = r.Active });
+        return await Members.ToDto(db, u, groupId, ct);
     }
 }

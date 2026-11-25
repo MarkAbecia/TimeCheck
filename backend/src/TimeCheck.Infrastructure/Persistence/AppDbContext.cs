@@ -37,6 +37,9 @@ public sealed class AppDbContext(
     public DbSet<Attendance> Attendance => Set<Attendance>();
     public DbSet<Devotion> Devotions => Set<Devotion>();
     public void DiscardChanges() => ChangeTracker.Clear();
+
+    public Task<int> PurgeAuditLogsAsync(Guid churchId, DateTimeOffset before, CancellationToken ct) =>
+        Database.SqlQuery<int>($"select public.purge_audit_logs({churchId}, {before}) as \"Value\"").SingleAsync(ct);
     public DbSet<Invite> Invites => Set<Invite>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<RoleChange> RoleChanges => Set<RoleChange>();
