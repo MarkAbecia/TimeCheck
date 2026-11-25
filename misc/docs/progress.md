@@ -339,7 +339,7 @@ Not done in this phase (needs a decision or a later phase):
 - `/hallmark audit` re-run (`audits/2026-11-25-hallmark-phase11.md`): 3 small Floor fixes for a polish pass (`transition-all` on Button, a literal shadow on the auth card, tracked caps on the unused dropdown shortcut), all three fixed. Also fixed after it: the report filters fold under "Change filters" on phones (always open from 640 px), and three toasts that repeated what the screen shows are gone (review saved, group archived, deactivate/reactivate; "Devotion sent" stays, since the leader receiving it isn't visible). Still open: the caps labels' letter spacing, kept as a conflict with the direction.
 - Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
 - No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
-- The rest of §6.10 isn't built: settings for devotion windows, reminder times, AI thresholds, event types and timezone. MFA reset, member search, force logout, the audit log viewer and settings for age groups and retention were added on 2026-11-25 (see Phase 12).
+- The rest of §6.10 isn't built: settings for event types and timezone, and AI provider config (no provider yet, ADR 0006). MFA reset, member search, force logout, the audit log viewer and settings for age groups, retention, devotion times and AI detection were added on 2026-11-25 (see Phase 12).
 
 ## Phase 12 — Deploy (in progress, 2026-11-25)
 
@@ -392,6 +392,16 @@ Added while waiting on accounts (§6.10, 2026-11-25):
   report cache is cleared like any audited write. The page previews the age groups as the report will label them. A new
   guest-retention period applies to guests logged afterwards (each invite stores its purge date). The BFF now passes
   `/admin/*` through; the API authorizes each route.
+- **Settings, second pass:** two more cards on `/settings`. *Devotion times*: Day and Night opening, closing and reminder
+  times (church time, native time pickers; "Night closes the next morning" when it does). *AI detection*: on/off for new
+  devotions, the "likely human" and "likely AI" limits with a live preview of the bands, and whether members see their own
+  score. The same `PATCH` takes `devotion` and `ai` (each optional, so pass-1 callers still work) and writes only those keys
+  under `settings.devotion` and `settings.ai`, keeping anything else there (a future provider block). Rules, the same on both
+  sides: `HH:mm` times; Day closes after it opens on the same day; Night opens and closes at different times; each reminder
+  falls inside its slot, and the Night reminder before midnight (the reminder job sends once the time has passed today
+  and the slot is open, so 01:00 would go out at 18:00); limits 1–99 with "likely human" at or below "likely AI". Read
+  through `DevotionSettings.Read`, which the devotion pages and both jobs already use, so a change applies on the next
+  request or job run. Event types and timezone stay out: they move scheduled events and every date shown.
 - **Fixed on the way (settings):** the Member Report read age brackets from `settings.reports.ageBrackets` and guest
   retention from `settings.invites.purgeAfterDays`, but `create_church` writes `settings.ageBrackets` and
   `settings.retention.guestInviteDays`. The values matched the defaults, so nothing showed; the readers now use the
@@ -400,6 +410,9 @@ Added while waiting on accounts (§6.10, 2026-11-25):
   pages redirected to `/login`, which the proxy sent back to `/` because the cookie still looked valid: a redirect loop.
   Those redirects now go to `/login?ended=1`, where the proxy clears the cookies. Side effect: a link to that URL signs
   someone out of TimeCheck, which is harmless.
+- Checked (settings, second pass): 11 more integration tests (times and limits change and members then see their own score;
+  7 bad times and 3 bad limits refused) and the e2e flow extended (an after-midnight Night reminder is caught; the Night
+  reminder, "likely AI" limit and member visibility are stored).
 - Checked (settings): 6 integration tests (change and keep other keys, audited; bad values refused; super admins only) and an
   e2e flow (an out-of-order age is caught, a group removed, guest days changed, stored and audited; axe clean).
 - Checked: 7 integration tests (reach rules, mobile in both formats, `%` matched literally, notice and audit, old tokens
@@ -434,7 +447,6 @@ Not done:
 - Phase 7:
   - No real detection provider (Q6, ADR 0006), and no OCR, so a photo is scored as an image, not as the text on it.
   - Devotions don't write DEVOTION_DAY/NIGHT attendance rows; reports can count them from `devotions`.
-  - No settings screen for windows, reminder times or thresholds yet (settings pass 2).
   - Mirrored EXIF orientations aren't handled.
   - The group list is capped at 500 members.
   - Hangfire runs could overlap if a batch takes over a minute; the concurrency token keeps the data right, but work may repeat.

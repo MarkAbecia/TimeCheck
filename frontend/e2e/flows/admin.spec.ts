@@ -152,7 +152,7 @@ test("a super admin reads one person's history in the audit log", async ({ page 
   }
 });
 
-test("a super admin changes the age groups and how long guests are kept", async ({ page }) => {
+test("a super admin changes age groups, guest retention, the Night reminder and AI limits", async ({ page }) => {
   test.setTimeout(90_000);
   const ADMIN_AUTH = "30000000-0000-0000-0000-000000000002";
   const church = `(select church_id from public.app_users where email = '${ADMIN}')`;
@@ -169,6 +169,7 @@ test("a super admin changes the age groups and how long guests are kept", async 
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await expect(page.getByText("Groups: 12 and under, 13–17, 18–24, 25–35, 36 and over.")).toBeVisible();
     await expectAccessible(page);
+
     // An age lower than the one before is caught before saving.
     await page.getByLabel("Group 2: up to age").fill("10");
     await page.getByRole("button", { name: "Save settings" }).click();
@@ -178,6 +179,18 @@ test("a super admin changes the age groups and how long guests are kept", async 
     await page.getByRole("button", { name: "Remove group 4" }).click();
     await page.getByLabel("Guests who didn’t join").fill("60");
     await expect(page.getByText("Groups: 12 and under, 13–17, 18–24, 25 and over.")).toBeVisible();
+
+    // A Night reminder after midnight would go out at opening time, so it's caught.
+    const night = page.getByRole("group", { name: "Night" });
+    await expect(night.getByText("Night closes the next morning.")).toBeVisible();
+    await night.getByLabel("Reminder").fill("01:00");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect(night.getByText("Pick a time while Night is open, before midnight.")).toBeVisible();
+    await night.getByLabel("Reminder").fill("21:00");
+
+    await page.getByLabel("“Likely AI” above").fill("80");
+    await expect(page.getByText("Likely human under 40%, uncertain 40–80%, likely AI over 80%.")).toBeVisible();
+    await page.getByLabel("Members see the score on their own devotions").check();
     await page.getByRole("button", { name: "Save settings" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible({ timeout: 15_000 });
 
@@ -185,6 +198,10 @@ test("a super admin changes the age groups and how long guests are kept", async 
       `select (settings->'ageBrackets')::text || '|' || (settings->'retention'->>'guestInviteDays') from public.churches where id = ${church};`,
     );
     expect(stored).toBe("[12, 17, 24]|60");
+    const devotionAndAi = sql(
+      `select (settings->'devotion'->>'nightReminder') || '|' || (settings->'ai'->>'likelyAiAbove') || '|' || (settings->'ai'->>'membersSeeOwnScore') from public.churches where id = ${church};`,
+    );
+    expect(devotionAndAi).toBe("21:00|80|true");
     expect(
       sql(`select count(*) > 0 from public.audit_logs where action = 'settings.update' and occurred_at > now() - interval '5 minutes';`),
     ).toBe("t");

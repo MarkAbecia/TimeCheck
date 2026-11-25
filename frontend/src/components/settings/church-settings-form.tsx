@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { send } from "@/lib/api-client";
-import type { ChurchSettings } from "@/lib/types";
+import type { ChurchSettings, DevotionTimes } from "@/lib/types";
 
 const MAX_BRACKETS = 8;
 // Same bounds as the API validator (UpdateChurchSettingsValidator).
@@ -17,13 +17,63 @@ const LIMITS = { guestInviteDays: [1, 365], deactivatedUserYears: [1, 10], audit
 type RetentionKey = keyof typeof LIMITS;
 
 const whole = (s: string) => (/^\d{1,4}$/.test(s.trim()) ? Number(s) : NaN);
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/; // "HH:mm", so times compare as strings
+
+/** The same rules as the API validator, one message per field. */
+function devotionErrors(d: DevotionTimes, t: ReturnType<typeof useTranslations<"settings">>) {
+  const fmt = (k: keyof DevotionTimes) => (HM.test(d[k]) ? null : t("timeFormat"));
+  const nightNextDay = d.nightCloses <= d.nightOpens;
+  return {
+    dayOpens: fmt("dayOpens"),
+    dayCloses: fmt("dayCloses") ?? (d.dayCloses <= d.dayOpens ? t("dayOrder") : null),
+    dayReminder: fmt("dayReminder") ?? (d.dayReminder < d.dayOpens || d.dayReminder > d.dayCloses ? t("dayReminderWindow") : null),
+    nightOpens: fmt("nightOpens"),
+    nightCloses: fmt("nightCloses") ?? (d.nightCloses === d.nightOpens ? t("nightSame") : null),
+    nightReminder:
+      fmt("nightReminder") ??
+      (d.nightReminder < d.nightOpens || (!nightNextDay && d.nightReminder > d.nightCloses) ? t("nightReminderWindow") : null),
+  } satisfies Record<keyof DevotionTimes, string | null>;
+}
+
+function TimeField({
+  id,
+  label,
+  value,
+  error,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  error: string | null;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="grid content-start gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="time"
+        value={value}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error && (
+        <p id={`${id}-error`} className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Age groups as the Member Report labels them: "12 and under", "13–17", …, "36 and over". */
 function ageGroups(bounds: number[]) {
   return [...bounds.map((b, i) => (i === 0 ? `${b} and under` : `${bounds[i - 1] + 1}–${b}`)), `${bounds[bounds.length - 1] + 1} and over`];
 }
 
-/** Super Admin settings, first pass (§6.10): age brackets for the Member Report and retention periods (§8.4). */
+/** Super Admin settings (§6.10): age groups, retention (§8.4), devotion windows and reminders (§6.3), and AI detection. */
 export function ChurchSettingsForm({ initial }: { initial: ChurchSettings }) {
   const t = useTranslations("settings");
   const router = useRouter();
@@ -32,6 +82,13 @@ export function ChurchSettingsForm({ initial }: { initial: ChurchSettings }) {
     guestInviteDays: String(initial.retention.guestInviteDays),
     deactivatedUserYears: String(initial.retention.deactivatedUserYears),
     auditLogDays: String(initial.retention.auditLogDays),
+  });
+  const [devotion, setDevotion] = useState<DevotionTimes>(initial.devotion);
+  const [ai, setAi] = useState({
+    enabled: initial.ai.enabled,
+    likelyHumanBelow: String(initial.ai.likelyHumanBelow),
+    likelyAiAbove: String(initial.ai.likelyAiAbove),
+    membersSeeOwnScore: initial.ai.membersSeeOwnScore,
   });
   const [checked, setChecked] = useState(false);
   const [pending, setPending] = useState(false);
@@ -49,7 +106,18 @@ export function ChurchSettingsForm({ initial }: { initial: ChurchSettings }) {
       return [k, v >= min && v <= max ? null : t("between", { min, max })];
     }),
   ) as Record<RetentionKey, string | null>;
-  const valid = ageErrors.every((e) => !e) && Object.values(retentionErrors).every((e) => !e);
+  const timeErrors = devotionErrors(devotion, t);
+  const human = whole(ai.likelyHumanBelow);
+  const likelyAi = whole(ai.likelyAiAbove);
+  const aiErrors = {
+    likelyHumanBelow: human >= 1 && human <= 99 ? null : t("between", { min: 1, max: 99 }),
+    likelyAiAbove: !(likelyAi >= 1 && likelyAi <= 99) ? t("between", { min: 1, max: 99 }) : likelyAi < human ? t("aiOrder") : null,
+  };
+  const valid = [...ageErrors, ...Object.values(retentionErrors), ...Object.values(timeErrors), ...Object.values(aiErrors)].every(
+    (e) => !e,
+  );
+  const setTime = (k: keyof DevotionTimes) => (v: string) => edit(() => setDevotion((d) => ({ ...d, [k]: v })));
+  const shownTime = (k: keyof DevotionTimes) => (checked ? timeErrors[k] : null);
 
   const edit = (fn: () => void) => {
     fn();
@@ -69,6 +137,8 @@ export function ChurchSettingsForm({ initial }: { initial: ChurchSettings }) {
         deactivatedUserYears: whole(retention.deactivatedUserYears),
         auditLogDays: whole(retention.auditLogDays),
       },
+      devotion,
+      ai: { enabled: ai.enabled, likelyHumanBelow: human, likelyAiAbove: likelyAi, membersSeeOwnScore: ai.membersSeeOwnScore },
     });
     setPending(false);
     if (!r.ok) return setError(r.problem.status === 0 ? t("offline") : r.problem.status === 403 ? t("needsMfa") : t("unexpected"));
@@ -175,6 +245,104 @@ export function ChurchSettingsForm({ initial }: { initial: ChurchSettings }) {
             </div>
           );
         })}
+      </section>
+
+      <section aria-labelledby="devotion-title" className="grid gap-4 rounded-[10px] border border-border bg-card p-4">
+        <div className="grid gap-1">
+          <h2 id="devotion-title" className="font-semibold">
+            {t("devotionTitle")}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t("devotionLead")}</p>
+        </div>
+        {(["day", "night"] as const).map((slot) => (
+          <fieldset key={slot} className="grid gap-2">
+            <legend className="mb-2 font-medium">{t(`${slot}Slot`)}</legend>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <TimeField
+                id={`${slot}Opens`}
+                label={t("opens")}
+                value={devotion[`${slot}Opens`]}
+                error={shownTime(`${slot}Opens`)}
+                onChange={setTime(`${slot}Opens`)}
+              />
+              <TimeField
+                id={`${slot}Closes`}
+                label={t("closes")}
+                value={devotion[`${slot}Closes`]}
+                error={shownTime(`${slot}Closes`)}
+                onChange={setTime(`${slot}Closes`)}
+              />
+              <TimeField
+                id={`${slot}Reminder`}
+                label={t("reminder")}
+                value={devotion[`${slot}Reminder`]}
+                error={shownTime(`${slot}Reminder`)}
+                onChange={setTime(`${slot}Reminder`)}
+              />
+            </div>
+            {slot === "night" && HM.test(devotion.nightCloses) && devotion.nightCloses < devotion.nightOpens && (
+              <p className="text-sm text-muted-foreground">{t("nightNextMorning")}</p>
+            )}
+          </fieldset>
+        ))}
+        <p className="text-sm text-muted-foreground">{t("reminderHint")}</p>
+      </section>
+
+      <section aria-labelledby="ai-title" className="grid gap-4 rounded-[10px] border border-border bg-card p-4">
+        <div className="grid gap-1">
+          <h2 id="ai-title" className="font-semibold">
+            {t("aiTitle")}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t("aiLead")}</p>
+        </div>
+        <label className="flex min-h-11 items-center gap-3">
+          <input
+            type="checkbox"
+            className="size-5 accent-primary"
+            checked={ai.enabled}
+            onChange={(e) => edit(() => setAi((a) => ({ ...a, enabled: e.target.checked })))}
+          />
+          {t("aiEnabled")}
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          {(["likelyHumanBelow", "likelyAiAbove"] as const).map((k) => {
+            const err = checked ? aiErrors[k] : null;
+            return (
+              <div key={k} className="grid content-start gap-1.5">
+                <Label htmlFor={k}>{t(k)}</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={k}
+                    inputMode="numeric"
+                    className="max-w-24"
+                    value={ai[k]}
+                    aria-invalid={Boolean(err)}
+                    aria-describedby={err ? `${k}-error` : undefined}
+                    onChange={(e) => edit(() => setAi((a) => ({ ...a, [k]: e.target.value })))}
+                  />
+                  <span className="text-sm text-muted-foreground">%</span>
+                </div>
+                {err && (
+                  <p id={`${k}-error`} className="text-sm text-destructive">
+                    {err}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-sm" aria-live="polite">
+          {aiErrors.likelyHumanBelow || aiErrors.likelyAiAbove ? t("bandsWaiting") : t("bandsPreview", { human, ai: likelyAi })}
+        </p>
+        <label className="flex min-h-11 items-center gap-3">
+          <input
+            type="checkbox"
+            className="size-5 accent-primary"
+            checked={ai.membersSeeOwnScore}
+            onChange={(e) => edit(() => setAi((a) => ({ ...a, membersSeeOwnScore: e.target.checked })))}
+          />
+          {t("membersSeeOwnScore")}
+        </label>
       </section>
 
       <div className="flex flex-wrap items-center gap-3">

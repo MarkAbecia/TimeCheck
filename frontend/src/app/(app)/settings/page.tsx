@@ -7,7 +7,7 @@ import type { ChurchSettings } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Settings" };
 
-/** Super Admin settings (§6.10). First pass: age groups and how long data is kept. */
+/** Super Admin settings (§6.10): age groups, retention, devotion times and AI detection. */
 export default async function SettingsPage() {
   await requireRole("super_admin");
   const [t, settings] = await Promise.all([getTranslations("settings"), apiGet<ChurchSettings>("/admin/settings")]);

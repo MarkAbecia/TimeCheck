@@ -58,6 +58,69 @@ public class SettingsTests(ApiFactory factory)
         res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    private static object Body(object devotion, object ai) => new
+    {
+        ageBrackets = (int[])[12, 17, 24, 35],
+        retention = new { guestInviteDays = 90, deactivatedUserYears = 3, auditLogDays = 400 },
+        devotion,
+        ai,
+    };
+
+    private static readonly object SeedDevotion = new { dayOpens = "00:00", dayCloses = "23:59", dayReminder = "07:00", nightOpens = "18:00", nightCloses = "05:00", nightReminder = "20:00" };
+    private static readonly object SeedAi = new { enabled = true, likelyHumanBelow = 40, likelyAiAbove = 75, membersSeeOwnScore = false };
+
+    [Fact]
+    public async Task Devotion_times_and_ai_settings_change_and_take_effect()
+    {
+        var original = await SuperAdmin.GetFromJsonAsync<JsonElement>("/api/v1/admin/settings");
+        original.GetProperty("devotion").GetProperty("nightCloses").GetString().Should().Be("05:00");
+        original.GetProperty("ai").GetProperty("likelyAiAbove").GetInt32().Should().Be(75);
+        var member = factory.ClientFor(ApiFactory.MemberAuth);
+        (await member.GetFromJsonAsync<JsonElement>("/api/v1/me/devotions")).GetProperty("showsScores").GetBoolean().Should().BeFalse();
+        try
+        {
+            var res = await SuperAdmin.PatchAsJsonAsync("/api/v1/admin/settings", Body(
+                new { dayOpens = "04:00", dayCloses = "22:00", dayReminder = "08:30", nightOpens = "19:00", nightCloses = "02:00", nightReminder = "21:30" },
+                new { enabled = true, likelyHumanBelow = 30, likelyAiAbove = 80, membersSeeOwnScore = true }));
+            res.StatusCode.Should().Be(HttpStatusCode.OK, await res.Content.ReadAsStringAsync());
+
+            var now = await res.Content.ReadFromJsonAsync<JsonElement>();
+            now.GetProperty("devotion").GetProperty("nightReminder").GetString().Should().Be("21:30");
+            now.GetProperty("ai").GetProperty("likelyHumanBelow").GetInt32().Should().Be(30);
+            (await member.GetFromJsonAsync<JsonElement>("/api/v1/me/devotions")).GetProperty("showsScores").GetBoolean()
+                .Should().BeTrue("members now see their own score");
+        }
+        finally
+        {
+            (await SuperAdmin.PatchAsJsonAsync("/api/v1/admin/settings", JsonSerializer.Deserialize<object>(original.GetRawText()))).EnsureSuccessStatusCode();
+        }
+    }
+
+    [Theory]
+    [InlineData("dayCloses", "25:00")]     // not a time
+    [InlineData("dayCloses", "7:00")]      // not HH:mm
+    [InlineData("dayOpens", "23:59")]      // Day closes before it opens
+    [InlineData("nightCloses", "18:00")]   // Night opens and closes together
+    [InlineData("dayReminder", "23:59:00")] // not HH:mm
+    [InlineData("nightReminder", "01:00")] // after midnight: it would go out at opening time
+    [InlineData("nightReminder", "17:00")] // before Night opens
+    public async Task Bad_devotion_times_are_refused(string field, string value)
+    {
+        var devotion = JsonSerializer.SerializeToNode(SeedDevotion)!.AsObject();
+        devotion[field] = value;
+        (await SuperAdmin.PatchAsJsonAsync("/api/v1/admin/settings", Body(devotion, SeedAi))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [InlineData(80, 70)] // human limit above the AI limit
+    [InlineData(0, 75)]
+    [InlineData(40, 100)]
+    public async Task Bad_ai_limits_are_refused(int humanBelow, int aiAbove)
+    {
+        var ai = new { enabled = true, likelyHumanBelow = humanBelow, likelyAiAbove = aiAbove, membersSeeOwnScore = false };
+        (await SuperAdmin.PatchAsJsonAsync("/api/v1/admin/settings", Body(SeedDevotion, ai))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task Settings_are_for_super_admins_only()
     {

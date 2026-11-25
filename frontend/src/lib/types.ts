@@ -211,8 +211,20 @@ export type ReportJob = {
   error: string | null;
 };
 
-/** Super Admin settings, first pass (§6.10): GET/PATCH /admin/settings. */
+/** Super Admin settings (§6.10): GET/PATCH /admin/settings. */
 export type ChurchSettings = {
   ageBrackets: number[];
   retention: { guestInviteDays: number; deactivatedUserYears: number; auditLogDays: number };
+  /** Church wall times, "HH:mm". A Night closing at or before its opening closes the next morning. */
+  devotion: DevotionTimes;
+  ai: { enabled: boolean; likelyHumanBelow: number; likelyAiAbove: number; membersSeeOwnScore: boolean };
+};
+
+export type DevotionTimes = {
+  dayOpens: string;
+  dayCloses: string;
+  dayReminder: string;
+  nightOpens: string;
+  nightCloses: string;
+  nightReminder: string;
 };
