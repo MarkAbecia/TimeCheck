@@ -313,7 +313,7 @@ Checked:
 - **Playwright:** full run 158/162; the 4 failures were in the new report tests and are fixed (the wide report table now scrolls by keyboard, which axe caught at 768 px; the flow lacked the leader session), then all 32 report tests passed. The sign-in setup now waits up to 30 s for Today, since dev mode compiles on demand. New flow: a leader filters Attendance, downloads the CSV and sees it under Your exports. The three report pages are in the axe run.
 - **Live:** as the seeded leader, the Attendance and Member Status reports, the CSV download through the signed link, and the phone layout at 375 px. This found a real bug: the Worker didn't register `ReportBuilder`, so queued exports never ran there (the integration test runs the job inside the API's services). Fixed and checked: the Worker now expires files.
 
-## Phase 11 — Hardening (in progress, 2026-11-25)
+## Phase 11 — Hardening (done, 2026-11-25)
 
 Decisions: ADR 0009 (erasure keeps the row and attendance under "Removed member"; retention from church settings; audit rows purged only through a database function that keeps a year).
 
@@ -340,6 +340,36 @@ Not done in this phase (needs a decision or a later phase):
 - Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
 - No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
 - The rest of §6.10 isn't built: MFA reset, member search, the settings screen (retention, devotion windows, age brackets, AI thresholds) and the audit log viewer UI (the API exists).
+
+## Phase 12 — Deploy (in progress, 2026-11-25)
+
+Built (in the repo; nothing is deployed yet):
+- **Blueprint (`render.yaml`):** project `timecheck` with `staging` and `production` environments, each with web, API, Worker
+  and a private Key Value, in Singapore. Names carry the environment (Render needs them unique). Network isolation on both;
+  production is protected. Auto-deploy is off; `deploy.yml` deploys after migrations. Replaced the Phase 0 skeleton, which used
+  variable names the web app no longer reads and put `sync: false` inside a group, which Render ignores. Secrets live in a
+  hand-made group per environment (`timecheck-secrets-*`), listed in the file header and the runbook.
+- **Smoke tests:** `frontend/e2e/smoke/smoke.spec.ts`, run with `npm run smoke` and `SMOKE_BASE_URL`: health and security
+  headers, signed-out redirect and 401, a leader signs in and opens a report, the admin signs in with a TOTP code (key from a
+  CI secret) and opens Members. Read-only apart from sign-in. `deploy.yml` gained a `smoke` job that waits for the web health
+  check to report the new commit (`version` from `RENDER_GIT_COMMIT`), then runs them.
+- **Runbook:** `deploy-and-rollback.md` now has first-time setup per environment (Supabase, secrets group, Blueprint prompts,
+  smoke accounts, GitHub environment secrets, domain).
+
+Checked:
+- The Blueprint and workflow parse; `render blueprints validate` wasn't run (no Render CLI here).
+- Smoke tests: 4/4 against the local stack, with the admin given a pre-enrolled authenticator the way staging will have one
+  (removed afterwards).
+- **Lighthouse** on the production build (`audits/2026-11-25-lighthouse-phase12.md`): the first run found every route over the
+  200 KB JS budget (238–284 KB gzipped). Fixed the same day: the Appearance menu and the phone More sheet load on first tap
+  (about 48 KB of Base UI and Floating UI off every page), and the login and forgot-password forms check their fields without
+  `zod` in the browser (43 KB), the login form also without react-hook-form (12 KB). Now 186–198 KB on all five measured
+  routes, CLS 0, accessibility 98–100, LCP under 1 s in the final run (it varies between runs in Lighthouse's simulation).
+
+Not done:
+- Anything that needs the owner: Render and Supabase accounts, secrets, an email provider (ADR 0007), the domain, the first
+  deploys and the backup restore drill.
+- The k6 load test (run against staging). JS margins are thin (2–14 KB), so re-measure when a page gains a client component.
 
 ## Known gaps / next
 - Phase 10:

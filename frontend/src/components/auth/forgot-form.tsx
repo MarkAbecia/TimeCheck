@@ -1,14 +1,13 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { MailCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import type { z } from "zod";
 import { requestReset, type AuthError } from "@/lib/auth-client";
-import { forgotSchema, type ForgotInput } from "@/lib/validation/auth";
+import type { ForgotInput } from "@/lib/validation/auth";
+import { emailRules } from "@/lib/validation/auth-client";
 import { buttonVariants } from "@/components/ui/button";
 import { Field, FormAlert, SubmitButton } from "./fields";
 
@@ -20,7 +19,7 @@ export function ForgotForm() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<z.input<typeof forgotSchema>, unknown, ForgotInput>({ resolver: zodResolver(forgotSchema), mode: "onTouched" });
+  } = useForm<ForgotInput>({ mode: "onTouched" });
 
   if (sentTo) {
     return (
@@ -54,11 +53,14 @@ export function ForgotForm() {
         autoComplete="email"
         autoCapitalize="none"
         spellCheck={false}
-        registration={register("email")}
+        registration={register("email", emailRules)}
         error={errors.email}
       />
       <SubmitButton pending={isSubmitting} label={t("sendLink")} pendingLabel={t("sending")} />
-      <Link href="/login" className="inline-flex min-h-11 items-center justify-center text-sm font-medium text-primary-text underline-offset-4 hover:underline">
+      <Link
+        href="/login"
+        className="inline-flex min-h-11 items-center justify-center text-sm font-medium text-primary-text underline-offset-4 hover:underline"
+      >
         {t("backToSignIn")}
       </Link>
     </form>

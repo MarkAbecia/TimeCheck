@@ -7,10 +7,9 @@ import { useState } from "react";
 import { Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isActive, navFor, type Role } from "@/lib/nav";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 /** Unread notifications, in words for screen readers. Shown on the Notifications item (and More, when it's in there). */
-function Unread({ count, className }: { count: number; className?: string }) {
+export function Unread({ count, className }: { count: number; className?: string }) {
   const t = useTranslations("nav");
   if (count <= 0) return null;
   return (
@@ -23,6 +22,18 @@ function Unread({ count, className }: { count: number; className?: string }) {
       {count > 99 ? "99+" : count}
       <span className="sr-only"> {t("unread", { count })}</span>
     </span>
+  );
+}
+
+/** The More tab's face, shared by the placeholder button and the loaded sheet's trigger. */
+export function MoreLabel({ moreActive, unread }: { moreActive: boolean; unread: number }) {
+  const t = useTranslations("nav");
+  return (
+    <>
+      <Ellipsis className={cn("size-[1.375rem]", moreActive && "text-shell-active")} aria-hidden />
+      {t("more")}
+      <Unread count={unread} className="absolute top-1 left-1/2 ml-2" />
+    </>
   );
 }
 
@@ -62,11 +73,13 @@ export function SideNav({ role, unread = 0 }: { role: Role; unread?: number }) {
 export function BottomTabs({ role, unread = 0 }: { role: Role; unread?: number }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // The More sheet and its dialog library load on the first tap, then replace the button, opened (§9 JS budget).
+  const [Sheet, setSheet] = useState<typeof import("./more-sheet").MoreSheet | null>(null);
   const { tabs, more } = navFor(role);
   const moreActive = more.some((i) => isActive(i.href, pathname));
 
   const tab = "relative flex min-h-14 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors";
+  const triggerClass = cn(tab, "w-full", moreActive ? "text-shell-foreground" : "text-shell-muted");
 
   return (
     <nav
@@ -92,40 +105,19 @@ export function BottomTabs({ role, unread = 0 }: { role: Role; unread?: number }
         })}
         {more.length > 0 && (
           <li>
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger className={cn(tab, "w-full", moreActive ? "text-shell-foreground" : "text-shell-muted")}>
-                <Ellipsis className={cn("size-[1.375rem]", moreActive && "text-shell-active")} aria-hidden />
-                {t("more")}
-                {more.some((i) => i.key === "notifications") && <Unread count={unread} className="absolute top-1 left-1/2 ml-2" />}
-              </SheetTrigger>
-              <SheetContent side="bottom" className="rounded-t-2xl pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-                <SheetHeader>
-                  <SheetTitle className="font-display text-xl font-bold tracking-wide uppercase">{t("moreTitle")}</SheetTitle>
-                </SheetHeader>
-                <ul className="grid gap-1 px-2">
-                  {more.map(({ key, href, icon: Icon }) => {
-                    const active = isActive(href, pathname);
-                    return (
-                      <li key={key}>
-                        <Link
-                          href={href}
-                          onClick={() => setOpen(false)}
-                          aria-current={active ? "page" : undefined}
-                          className={cn(
-                            "flex min-h-12 items-center gap-3 rounded-lg px-3 text-base font-medium hover:bg-muted",
-                            active && "bg-muted text-primary-text",
-                          )}
-                        >
-                          <Icon className="size-5 text-muted-foreground" aria-hidden />
-                          {t(key)}
-                          {key === "notifications" && <Unread count={unread} className="ml-auto" />}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </SheetContent>
-            </Sheet>
+            {Sheet ? (
+              <Sheet items={more} unread={unread} triggerClass={triggerClass} moreActive={moreActive} />
+            ) : (
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={false}
+                className={triggerClass}
+                onClick={() => void import("./more-sheet").then((m) => setSheet(() => m.MoreSheet))}
+              >
+                <MoreLabel moreActive={moreActive} unread={more.some((i) => i.key === "notifications") ? unread : 0} />
+              </button>
+            )}
           </li>
         )}
       </ul>

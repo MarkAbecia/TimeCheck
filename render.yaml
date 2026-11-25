@@ -1,70 +1,188 @@
-# Render Blueprint. Secret values live in the dashboard (timecheck-secrets), never here.
-envVarGroups:
-  - name: timecheck-shared
-    envVars:
-      - key: CHURCH_TIMEZONE
-        value: Asia/Manila
-      - key: ASPNETCORE_ENVIRONMENT
-        value: Production
-  - name: timecheck-secrets
-    envVars:
-      - key: Auth__SupabaseUrl
-        sync: false
-      - key: Auth__ServiceRoleKey          # backend/worker only, never the web service
-        sync: false
-      - key: ConnectionStrings__Default    # API: Supavisor transaction mode; Worker overrides with session mode
-        sync: false
-      - key: ConnectionStrings__Hangfire   # session mode / direct
-        sync: false
-      - key: Encryption__ActiveKeyId
-        sync: false
-      - key: Encryption__Keys__1
-        sync: false
-      - key: Encryption__BlindIndexKey
-        sync: false
-      - key: Cors__AllowedOrigins__0
-        sync: false
+# Render Blueprint (REQUIREMENTS §12). Two environments in one project, each with its own services, Redis and Supabase
+# project. Service names carry the environment because Render needs them unique across a workspace.
+#
+# Secrets are never in this file. Before the first sync, create two environment groups in the dashboard, one per
+# environment, with these keys (runbooks/deploy-and-rollback.md lists where each value comes from):
+#   timecheck-secrets-staging, timecheck-secrets-production
+#     Auth__SupabaseUrl, Auth__ServiceRoleKey, ConnectionStrings__Default, ConnectionStrings__Hangfire,
+#     Encryption__ActiveKeyId, Encryption__Keys__1, Encryption__BlindIndexKey,
+#     Notifications__Push__PublicKey, Notifications__Push__PrivateKey, Notifications__Push__Subject (a mailto: the push services can reach)
+# They are made by hand, not declared here, because a Blueprint that declares a group owns its values and `sync: false`
+# doesn't work inside groups. Values Render prompts for once (`sync: false`) are public URLs and the publishable key.
+#
+# Deploys: autoDeployTrigger is off everywhere. .github/workflows/deploy.yml runs the database migrations first, then
+# calls each service's deploy hook (staging on every push to main, production on a v* tag after approval).
 
-services:
-  - type: web
-    name: timecheck-web
-    runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
-    healthCheckPath: /api/health
-    envVars:
-      - fromGroup: timecheck-shared
-      - key: API_INTERNAL_URL
-        fromService: { type: web, name: timecheck-api, property: hostport }
-      - key: NEXT_PUBLIC_SUPABASE_URL
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        sync: false
+projects:
+  - name: timecheck
+    environments:
+      - name: staging
+        networking:
+          isolation: enabled # staging can't reach production over the private network
+        envVarGroups:
+          - name: timecheck-shared-staging
+            envVars:
+              - key: ASPNETCORE_ENVIRONMENT
+                value: Production # production behaviour (HSTS, no dev fakes); staging differs only in its data
+              - key: Notifications__Email__Provider
+                value: none # ADR 0007: off until the owner picks a provider
+              - key: Ai__Provider
+                value: none # ADR 0006: off until a provider is chosen
+        services:
+          - type: web
+            name: timecheck-web-staging
+            runtime: docker
+            region: singapore
+            dockerfilePath: ./frontend/Dockerfile
+            dockerContext: ./frontend
+            healthCheckPath: /api/health
+            autoDeployTrigger: "off"
+            buildFilter:
+              paths: [frontend/**]
+            envVars:
+              - key: PORT
+                value: "3000"
+              - key: CHURCH_NAME
+                value: TimeCheck
+              - key: APP_URL # this service's public URL, e.g. https://staging.timecheck.example
+                sync: false
+              - key: SUPABASE_URL
+                sync: false
+              - key: SUPABASE_PUBLISHABLE_KEY # the publishable key, never the secret one
+                sync: false
+              - key: API_URL
+                fromService: { type: web, name: timecheck-api-staging, property: hostport }
+              - key: REDIS_URL
+                fromService: { type: keyvalue, name: timecheck-redis-staging, property: connectionString }
 
-  - type: web
-    name: timecheck-api
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile.api
-    dockerContext: ./backend
-    healthCheckPath: /health/ready
-    envVars:
-      - fromGroup: timecheck-shared
-      - fromGroup: timecheck-secrets
-      - key: Redis__Configuration
-        fromService: { type: keyvalue, name: timecheck-redis, property: connectionString }
+          - type: web
+            name: timecheck-api-staging
+            runtime: docker
+            region: singapore
+            dockerfilePath: ./backend/Dockerfile.api
+            dockerContext: ./backend
+            healthCheckPath: /health/ready
+            autoDeployTrigger: "off"
+            buildFilter:
+              paths: [backend/**]
+            envVars:
+              - key: PORT
+                value: "8080"
+              - fromGroup: timecheck-shared-staging
+              - fromGroup: timecheck-secrets-staging
+              - key: Cors__AllowedOrigins__0 # the web service's public URL
+                sync: false
+              - key: Notifications__AppUrl # same URL; links in notifications point here
+                sync: false
+              - key: Redis__Configuration
+                fromService: { type: keyvalue, name: timecheck-redis-staging, property: connectionString }
 
-  - type: worker
-    name: timecheck-worker
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile.worker
-    dockerContext: ./backend
-    envVars:
-      - fromGroup: timecheck-shared
-      - fromGroup: timecheck-secrets
-      - key: Redis__Configuration
-        fromService: { type: keyvalue, name: timecheck-redis, property: connectionString }
+          - type: worker
+            name: timecheck-worker-staging
+            runtime: docker
+            region: singapore
+            dockerfilePath: ./backend/Dockerfile.worker
+            dockerContext: ./backend
+            autoDeployTrigger: "off"
+            buildFilter:
+              paths: [backend/**]
+            envVars:
+              - fromGroup: timecheck-shared-staging
+              - fromGroup: timecheck-secrets-staging
+              - key: Notifications__AppUrl
+                sync: false
+              - key: Redis__Configuration
+                fromService: { type: keyvalue, name: timecheck-redis-staging, property: connectionString }
 
-  - type: keyvalue
-    name: timecheck-redis
-    ipAllowList: []            # private network only
-    maxmemoryPolicy: volatile-lru  # evict cache keys (with TTL) first; rate-limit keys also carry TTLs
+          - type: keyvalue
+            name: timecheck-redis-staging
+            region: singapore
+            ipAllowList: [] # private network only
+            maxmemoryPolicy: volatile-lru # evict cache keys (all carry TTLs) first; rate-limit keys carry TTLs too
+
+      - name: production
+        networking:
+          isolation: enabled
+        permissions:
+          protection: enabled # only workspace admins change production in the dashboard
+        envVarGroups:
+          - name: timecheck-shared-production
+            envVars:
+              - key: ASPNETCORE_ENVIRONMENT
+                value: Production
+              - key: Notifications__Email__Provider
+                value: none
+              - key: Ai__Provider
+                value: none
+        services:
+          # One instance each to start; all three are stateless (§9), so numInstances can go up for Sunday peaks.
+          - type: web
+            name: timecheck-web-production
+            runtime: docker
+            region: singapore
+            dockerfilePath: ./frontend/Dockerfile
+            dockerContext: ./frontend
+            healthCheckPath: /api/health
+            autoDeployTrigger: "off"
+            buildFilter:
+              paths: [frontend/**]
+            envVars:
+              - key: PORT
+                value: "3000"
+              - key: CHURCH_NAME
+                value: TimeCheck
+              - key: APP_URL
+                sync: false
+              - key: SUPABASE_URL
+                sync: false
+              - key: SUPABASE_PUBLISHABLE_KEY
+                sync: false
+              - key: API_URL
+                fromService: { type: web, name: timecheck-api-production, property: hostport }
+              - key: REDIS_URL
+                fromService: { type: keyvalue, name: timecheck-redis-production, property: connectionString }
+
+          - type: web
+            name: timecheck-api-production
+            runtime: docker
+            region: singapore
+            dockerfilePath: ./backend/Dockerfile.api
+            dockerContext: ./backend
+            healthCheckPath: /health/ready
+            autoDeployTrigger: "off"
+            buildFilter:
+              paths: [backend/**]
+            envVars:
+              - key: PORT
+                value: "8080"
+              - fromGroup: timecheck-shared-production
+              - fromGroup: timecheck-secrets-production
+              - key: Cors__AllowedOrigins__0
+                sync: false
+              - key: Notifications__AppUrl
+                sync: false
+              - key: Redis__Configuration
+                fromService: { type: keyvalue, name: timecheck-redis-production, property: connectionString }
+
+          - type: worker
+            name: timecheck-worker-production
+            runtime: docker
+            region: singapore
+            dockerfilePath: ./backend/Dockerfile.worker
+            dockerContext: ./backend
+            autoDeployTrigger: "off"
+            buildFilter:
+              paths: [backend/**]
+            envVars:
+              - fromGroup: timecheck-shared-production
+              - fromGroup: timecheck-secrets-production
+              - key: Notifications__AppUrl
+                sync: false
+              - key: Redis__Configuration
+                fromService: { type: keyvalue, name: timecheck-redis-production, property: connectionString }
+
+          - type: keyvalue
+            name: timecheck-redis-production
+            region: singapore
+            ipAllowList: []
+            maxmemoryPolicy: volatile-lru
