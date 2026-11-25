@@ -243,3 +243,16 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
   --error-text: var(--destructive);
   --warning-text: var(--warning);
 }
+
+/* Report filters (reports/[type]): a disclosure on phones, always open from sm up. Browsers without ::details-content keep the
+   summary, so the filters stay reachable everywhere. */
+@supports selector(::details-content) {
+  @media (width >= 40rem) {
+    .report-filters::details-content {
+      content-visibility: visible;
+    }
+    .report-filters > summary {
+      display: none;
+    }
+  }
+}

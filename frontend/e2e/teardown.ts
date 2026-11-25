@@ -1,12 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { E2E_DOMAIN } from "./helpers";
+import { ADMIN, E2E_DOMAIN } from "./helpers";
 
 // Removes the people the specs registered (only @e2e.timecheck.test), the events they scheduled ("E2E " titles) and devotions they sent ("E2E " text, photo already removed) and guests invited to those events, with everything that points at them.
 // shortcut: goes through `docker exec` into the local Supabase db container; use a direct connection when e2e runs in CI.
 const SQL = `
 begin;
 create temp table gone as
-  select a.id, a.auth_user_id from public.app_users a join auth.users u on u.id = a.auth_user_id where u.email like '%@${E2E_DOMAIN}';
+  select a.id, a.auth_user_id from public.app_users a join auth.users u on u.id = a.auth_user_id where u.email like '%@${E2E_DOMAIN}'
+  -- Erasure replaces the email and drops the sign-in, so people the admin spec erased are found by their placeholder.
+  union select id, auth_user_id from public.app_users where email like 'erased-%@erased.invalid';
 -- Guests logged for E2E events, or converted into E2E people.
 delete from public.audit_logs where entity_type = 'invite' and entity_id in (select i.id::text from public.invites i join public.events e on e.id = i.event_id where e.title like 'E2E %');
 delete from public.invites where event_id in (select id from public.events where title like 'E2E %') or converted_user_id in (select id from gone);
@@ -26,6 +28,8 @@ delete from public.audit_logs where entity_type = 'event' and entity_id in (sele
 delete from public.events where id in (select id from e2e_events);
 delete from public.audit_logs where entity_type = 'devotion' and entity_id in (select id::text from public.devotions where text_content like 'E2E %');
 delete from public.devotions where text_content like 'E2E %' and image_path is null;
+-- The admin spec enrols a throwaway authenticator; the seed has none.
+delete from auth.mfa_factors where user_id = (select id from auth.users where email = '${ADMIN}');
 commit;`;
 
 export default function teardown() {

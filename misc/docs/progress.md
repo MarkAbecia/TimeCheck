@@ -332,11 +332,11 @@ Built:
 Checked:
 - **Automated:** backend 125/125 (8 new `PrivacyTests`: export and its audit row, leader refused, erase needs deactivation then keeps attendance and removes PII and the sign-in, the audit row has no personal details, a leading leader can't be deactivated, retention erases only past the cutoff and keeps rows under 400 days, the database refuses a purge under a year, settings floors). Frontend typecheck, lint and 52 unit tests (3 new for the Account and data section: confirm before deactivating, erase only after the exact name, API reasons shown).
 - **Playwright:** 160/162 on the full run; the devotion and invite flows timed out while dev mode compiled the changed pages and passed on rerun. One earlier run failed at sign-in on a database connection timeout (Docker port forwarding), not the code.
-- **Not checked live:** the admin "Account and data" section, because admins need an MFA code at sign-in and e2e has no TOTP helper yet; the component tests and API integration tests cover it.
+- **Admin e2e:** `signInAsAdmin` in `e2e/helpers.ts` removes the seeded admin's authenticator, enrols a fresh one through the MFA page and answers with a code computed from the key shown (RFC 6238, checked against the RFC's test vector). New flow `admin.spec.ts`: an admin signs in with the code, registers a throwaway member, downloads their data, deactivates (confirm step) and erases them after typing the name. Teardown removes erased test people and the admin's test authenticator. Don't keep a real authenticator on `admin@timecheck.test`.
 
 Not done in this phase (needs a decision or a later phase):
 - The k6 load test hasn't been run: k6 isn't installed here, and it needs a stack seeded at scale. The earlier SQL load test (Phase 10) is the only performance evidence.
-- `/hallmark audit` re-run (`audits/2026-11-25-hallmark-phase11.md`): 3 small Floor fixes for a polish pass (`transition-all` on Button, a literal shadow on the auth card, tracked caps on the unused dropdown shortcut), all three fixed. Still open: the caps labels kept as a conflict with the direction, four redundant success toasts, and the report filters filling a phone's first screen.
+- `/hallmark audit` re-run (`audits/2026-11-25-hallmark-phase11.md`): 3 small Floor fixes for a polish pass (`transition-all` on Button, a literal shadow on the auth card, tracked caps on the unused dropdown shortcut), all three fixed. Also fixed after it: the report filters fold under "Change filters" on phones (always open from 640 px), and three toasts that repeated what the screen shows are gone (review saved, group archived, deactivate/reactivate; "Devotion sent" stays, since the leader receiving it isn't visible). Still open: the caps labels' letter spacing, kept as a conflict with the direction.
 - Per-route JS against the 200 KB budget isn't measured (page chunks are 112–115 KB gzipped plus the shared runtime); Lighthouse on 4G in Phase 12.
 - No malware-scanning hook for uploads (§8.3), no field-key re-encryption job, and no blind-index rebuild job (see `rotate-secrets.md`).
 - The rest of §6.10 isn't built: MFA reset, member search, the settings screen (retention, devotion windows, age brackets, AI thresholds) and the audit log viewer UI (the API exists).
@@ -368,7 +368,7 @@ Not done in this phase (needs a decision or a later phase):
   - The Week of Fire weekday comes from `event_types`, not church settings.
   - The offline queue isn't backed by a service worker (it sends when the app is next open).
   - The OpenAPI TypeScript client hasn't been regenerated; the types are hand-written in `lib/types.ts`.
-- E2e doesn't cover admin screens (groups, role and move), because admins need TOTP codes. That needs a TOTP helper and a known seeded factor. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).
+- E2e covers only the admin "Account and data" flow so far (Phase 11 added the TOTP helper); groups, role and move have no admin e2e yet. There are no visual snapshot tests yet (§13), and e2e isn't in CI (it needs the full stack).
 - Docker Desktop on this machine has dropped host port forwarding a few times. If Supabase stops answering after a restart, `docker restart supabase_kong_timecheck supabase_inbucket_timecheck` (and `supabase_db_timecheck` for the API) brings the ports back.
 - Docker base images use tags; pin digests before production.
 - Next dev mode logs CSP warnings for inline styles injected by the dev tooling. The production build doesn't (checked in Phase 3).

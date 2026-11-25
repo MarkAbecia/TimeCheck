@@ -81,10 +81,9 @@ function GroupRow({ group, leaders }: { group: GroupSummary; leaders: LeaderOpti
     setError(null);
     const r = await send("POST", `/groups/${group.id}/archive`);
     setConfirming(false);
-    if (r.ok) {
-      toast.success(t("archived", { name: group.name }));
-      router.refresh();
-    } else setError(t(r.problem.status === 409 ? "hasMembers" : "unexpected"));
+    // The group leaves the list once it refreshes, so no toast.
+    if (r.ok) router.refresh();
+    else setError(t(r.problem.status === 409 ? "hasMembers" : "unexpected"));
   }
 
   if (editing) return <GroupForm group={group} leaders={leaders} onDone={() => setEditing(false)} />;

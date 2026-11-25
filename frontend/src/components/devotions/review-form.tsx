@@ -21,10 +21,9 @@ export function ReviewForm({ id, note, reviewed }: { id: string; note: string | 
     setPending(true);
     const r = await send("POST", `/devotions/${id}/review`, { note: value });
     setPending(false);
-    if (r.ok) {
-      toast.success(t("reviewSaved"));
-      router.refresh();
-    } else toast.error(r.problem.status === 0 ? t("offline") : t("unexpected"));
+    // The page shows "Reviewed {date}" once it refreshes, so no toast.
+    if (r.ok) router.refresh();
+    else toast.error(r.problem.status === 0 ? t("offline") : t("unexpected"));
   }
 
   return (

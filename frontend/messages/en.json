@@ -234,8 +234,6 @@
       "deactivateYes": "Yes, deactivate",
       "cancel": "Cancel",
       "reactivate": "Reactivate",
-      "deactivated": "{name} is deactivated.",
-      "reactivated": "{name} can sign in again.",
       "exportLead": "Everything TimeCheck holds about this person, as one file. Use it when they ask for a copy of their data.",
       "export": "Download their data",
       "eraseTitle": "Erase their data",
@@ -265,7 +263,6 @@
     "cancel": "Cancel",
     "archive": "Archive",
     "confirmArchive": "Yes, archive",
-    "archived": "Archived {name}.",
     "hasMembers": "Move this group's members to another group first.",
     "offline": "You're offline. Try again when you're connected.",
     "unexpected": "Something went wrong. Try again."
@@ -478,8 +475,7 @@
     "reviewedOn": "Reviewed {date}",
     "reviewNote": "Private note (optional)",
     "markReviewed": "Mark reviewed",
-    "updateReview": "Update review",
-    "reviewSaved": "Marked reviewed."
+    "updateReview": "Update review"
   },
   "invites": {
     "title": "Invites",
@@ -572,6 +568,7 @@
     "showing": "Showing",
     "updated": "Updated {time}. Changes show within a few minutes, or straight away after any change in the app.",
     "filters": "Filters",
+    "changeFilters": "Change filters",
     "from": "From",
     "to": "To",
     "group": "Group",

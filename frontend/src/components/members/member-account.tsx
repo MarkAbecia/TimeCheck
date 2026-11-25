@@ -32,8 +32,7 @@ export function MemberAccount({ member }: { member: Member }) {
     setPending(null);
     setConfirmDeactivate(false);
     if (!r.ok) return setError(problem(r.problem));
-    toast.success(active ? t("reactivated", { name: r.data.displayName }) : t("deactivated", { name: r.data.displayName }));
-    router.refresh();
+    router.refresh(); // the status line above flips, so no toast
   }
 
   async function exportData() {

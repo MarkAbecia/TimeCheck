@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { ExportButtons, type ExportFilters } from "@/components/reports/export-buttons";
 import { ReportChart } from "@/components/reports/report-chart";
 import { ReportTable } from "@/components/reports/report-table";
@@ -68,62 +68,69 @@ export default async function ReportPage({ params, searchParams }: PageProps<"/r
       </div>
 
       {(info.usesPeriod || showGroups || info.usesEventFilter) && (
-        <form
-          method="get"
-          aria-label={t("filters")}
-          className="grid gap-3 rounded-[10px] border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] lg:items-end"
-        >
-          {info.usesPeriod && (
-            <>
+        // On phones the filters fold away so the report starts on the first screen; from sm up they're always open (globals.css).
+        <details open={badRange} className="report-filters group rounded-[10px] border border-border bg-card">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-[10px] px-4 font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+            {t("changeFilters")}
+            <ChevronDown className="size-4 group-open:rotate-180" aria-hidden />
+          </summary>
+          <form
+            method="get"
+            aria-label={t("filters")}
+            className="grid gap-3 px-4 pt-1 pb-4 sm:grid-cols-2 sm:pt-4 lg:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] lg:items-end"
+          >
+            {info.usesPeriod && (
+              <>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="from">{t("from")}</Label>
+                  <Input id="from" name="from" type="date" defaultValue={from} max={today} required />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="to">{t("to")}</Label>
+                  <Input id="to" name="to" type="date" defaultValue={to} max={today} required />
+                </div>
+              </>
+            )}
+            {showGroups && (
               <div className="grid gap-1.5">
-                <Label htmlFor="from">{t("from")}</Label>
-                <Input id="from" name="from" type="date" defaultValue={from} max={today} required />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="to">{t("to")}</Label>
-                <Input id="to" name="to" type="date" defaultValue={to} max={today} required />
-              </div>
-            </>
-          )}
-          {showGroups && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="group">{t("group")}</Label>
-              <select id="group" name="group" defaultValue={group} className={select}>
-                <option value="">{isAdmin ? t("allGroups") : t("yourGroups")}</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {info.usesEventFilter && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="events">{t("events")}</Label>
-              <select id="events" name="events" defaultValue={events} className={select}>
-                <option value="">{t("allEvents")}</option>
-                <optgroup label={t("categories")}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={`category:${c}`}>
-                      {t(`category.${c}`)}
+                <Label htmlFor="group">{t("group")}</Label>
+                <select id="group" name="group" defaultValue={group} className={select}>
+                  <option value="">{isAdmin ? t("allGroups") : t("yourGroups")}</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
                     </option>
                   ))}
-                </optgroup>
-                <optgroup label={t("eventTypes")}>
-                  {types.map((e) => (
-                    <option key={e.id} value={`type:${e.id}`}>
-                      {e.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
-          )}
-          <Button type="submit" className="w-fit">
-            {t("show")}
-          </Button>
-        </form>
+                </select>
+              </div>
+            )}
+            {info.usesEventFilter && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="events">{t("events")}</Label>
+                <select id="events" name="events" defaultValue={events} className={select}>
+                  <option value="">{t("allEvents")}</option>
+                  <optgroup label={t("categories")}>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={`category:${c}`}>
+                        {t(`category.${c}`)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={t("eventTypes")}>
+                    {types.map((e) => (
+                      <option key={e.id} value={`type:${e.id}`}>
+                        {e.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+            )}
+            <Button type="submit" className="w-fit">
+              {t("show")}
+            </Button>
+          </form>
+        </details>
       )}
       {badRange && <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">{t("badRange")}</p>}
 

@@ -10,6 +10,8 @@ test("a leader filters a report, exports it as CSV and finds it under their expo
   await expect(page.getByRole("heading", { name: "Attendance", level: 1 })).toBeVisible();
   await expect(page.getByText("Group: Joshua Cell")).toBeVisible();
 
+  // On a phone the filters are folded away under the report's title.
+  await page.getByText("Change filters").click();
   await page.getByLabel("Events").selectOption({ label: "Weekly" });
   await page.getByRole("button", { name: "Show report" }).click();
   await expect(page).toHaveURL(/events=category%3AWEEKLY/);
