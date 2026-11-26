@@ -11,6 +11,8 @@ Cell group attendance and member management for a church.
 
 ## Local dev
 
+Full guides: [run it locally](misc/docs/guides/local-setup.md) · [deploy and change configuration](misc/docs/guides/deployment.md).
+
 Prereqs: Node 24+, .NET 10 SDK, Docker Desktop.
 
 ```bash

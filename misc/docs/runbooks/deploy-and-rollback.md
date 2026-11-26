@@ -1,5 +1,7 @@
 # Deploy and roll back
 
+Full step-by-step guide, including how to change configuration: `../guides/deployment.md`.
+
 Not yet rehearsed on Render. The Blueprint (`render.yaml`), the deploy workflow and the smoke tests exist; the first staging
 deploy will update this page with what was learned.
 
