@@ -20,14 +20,17 @@ deploy will update this page with what was learned.
    - API: `Cors__AllowedOrigins__0` and `Notifications__AppUrl` (both the web URL)
    - Worker: `Notifications__AppUrl`
    Validate first with `render blueprints validate render.yaml` (Render CLI 2.7+).
-4. **Migrations:** apply them once by hand or let the first `deploy.yml` run do it.
-5. **Smoke accounts:** register a leader and an admin in the new environment (not real members). Sign in as the admin, enrol an
+4. **Migrations:** apply them once by hand or let the first `deploy.yml` run do it. Then the `timecheck_api` login role and
+   the church (`database-roles.md`).
+5. **First Super Admin:** after the first API deploy, run `create-super-admin` from the API service's Shell
+   (`database-roles.md`), and accept the invite.
+6. **Smoke accounts:** register a leader and an admin in the new environment (not real members). Sign in as the admin, enrol an
    authenticator by hand-entering the key the MFA page shows, and save that key.
-6. **GitHub environment** (`staging` / `production`; production needs a required reviewer):
+7. **GitHub environment** (`staging` / `production`; production needs a required reviewer):
    - secrets: `SUPABASE_DB_URL`, `RENDER_DEPLOY_HOOK_WEB`, `RENDER_DEPLOY_HOOK_API`, `RENDER_DEPLOY_HOOK_WORKER`,
      `SMOKE_LEADER_EMAIL`, `SMOKE_LEADER_PASSWORD`, `SMOKE_ADMIN_EMAIL`, `SMOKE_ADMIN_PASSWORD`, `SMOKE_ADMIN_TOTP_SECRET`
    - variable: `SMOKE_BASE_URL` (the web URL)
-7. **Domain:** add the custom domain to the web service, then update `APP_URL`, `Cors__AllowedOrigins__0` and
+8. **Domain:** add the custom domain to the web service, then update `APP_URL`, `Cors__AllowedOrigins__0` and
    `Notifications__AppUrl` to it, and the Supabase Auth site URL and redirect list.
 
 ## Before any deploy

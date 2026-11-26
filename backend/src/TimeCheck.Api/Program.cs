@@ -78,6 +78,12 @@ builder.Services.AddOpenApi(o => o.AddDocumentTransformer((doc, _, _) =>
 
 var app = builder.Build();
 
+if (args.FirstOrDefault() == SetupCommands.CreateSuperAdmin)
+{
+    Environment.ExitCode = await SetupCommands.RunAsync(app.Services, app.Configuration, Console.Out);
+    return;
+}
+
 app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(o => o.GetLevel = (ctx, _, ex) =>

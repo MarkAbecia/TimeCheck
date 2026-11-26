@@ -110,6 +110,9 @@ public sealed class AppUser : BaseEntity, IChurchScoped, IAuditedEntity
 
     public void LinkAuthUser(Guid authUserId) => AuthUserId = authUserId;
 
+    /// <summary>A new church's first Super Admin, from the one-time setup command. Every later change goes through ChangeRole.</summary>
+    public void MakeFirstSuperAdmin() => Role = UserRole.SUPER_ADMIN;
+
     public RoleChange ChangeRole(UserRole newRole, AppUser actor, string? reason)
     {
         if (newRole == Role) throw new DomainException("role.unchanged", "User already has this role.");

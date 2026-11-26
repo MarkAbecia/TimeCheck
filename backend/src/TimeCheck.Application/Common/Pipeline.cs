@@ -137,6 +137,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<Features.Reports.ReportExports>();
         services.AddScoped<Features.Privacy.PersonEraser>();
         services.AddScoped<Features.Privacy.RetentionJob>();
+        services.AddScoped<Features.Admin.FirstSuperAdmin>();
         return services;
     }
 }

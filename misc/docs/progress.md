@@ -410,6 +410,14 @@ Added while waiting on accounts (§6.10, 2026-11-25):
   pages redirected to `/login`, which the proxy sent back to `/` because the cookie still looked valid: a redirect loop.
   Those redirects now go to `/login?ended=1`, where the proxy clears the cookies. Side effect: a link to that URL signs
   someone out of TimeCheck, which is harmless.
+- **First Super Admin command:** a new environment had no way to create its first Super Admin (the runbook named a
+  bootstrap command that didn't exist, and SQL can't write the encrypted birthdate). `dotnet TimeCheck.Api.dll
+  create-super-admin --email … --first-name … --last-name … --gender … --birthdate yyyy-MM-dd [--church …]` runs in the
+  API container (Render Shell) with the service's own configuration and exits instead of serving. It invites the person
+  through Supabase like any member, makes them Super Admin, and audits `member.first_super_admin`. It refuses when the
+  church already has a Super Admin, when there's no church or more than one without `--church`, and on bad input.
+  Checked: 2 integration tests, and a real run against local Supabase (a throwaway church; the invite email arrived;
+  removed afterwards). Runbooks updated.
 - **Admin e2e gaps closed:** `flows/groups.spec.ts` creates a group, moves a newly registered member into it, promotes them
   with a reason, renames the group and makes them its leader, then checks the two refusals (archiving a group with
   members; demoting someone who still leads a group, with the API's message shown) before emptying and archiving it. It
