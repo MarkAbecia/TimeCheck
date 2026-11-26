@@ -49,7 +49,7 @@ jobs:
             sleep 20
           done
           echo "Still serving ${live:-nothing} after 20 minutes, expected $GITHUB_SHA" >&2; exit 1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
