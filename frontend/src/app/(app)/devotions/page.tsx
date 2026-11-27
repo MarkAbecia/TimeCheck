@@ -60,7 +60,7 @@ export default async function DevotionsPage() {
         {mine.recent.length === 0 ? (
           <EmptyState icon={BookOpenCheck} title={t("emptyTitle")} body={t("emptyBody")} />
         ) : (
-          <ul className="grid divide-y divide-border rounded-[10px] border border-border bg-card">
+          <ul className="grid grid-cols-1 divide-y divide-border rounded-[10px] border border-border bg-card">
             {mine.recent.map((d) => (
               <li key={d.id}>
                 <Link
